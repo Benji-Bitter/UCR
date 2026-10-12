@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #101210;
+  --color-panel: #181a18;
+  --color-panel-2: #1f221f;
+  --color-line: #2a2e2a;
+  --color-fg: #e6e9e4;
+  --color-dim: #8a918a;
+  --color-accent: #7dd87d;
+  --color-warn: #e8b447;
+  --color-danger: #e05d4f;
+  --font-mono: "Berkeley Mono", "SF Mono", ui-monospace, Menlo, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-ink);
+  color: var(--color-fg);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line) transparent;
+}
+
+input,
+select,
+textarea,
+button {
+  font: inherit;
+}

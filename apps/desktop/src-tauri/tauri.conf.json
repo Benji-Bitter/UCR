@@ -4,7 +4,9 @@
   "version": "0.1.0",
   "identifier": "radio.ucr.app",
   "build": {
-    "frontendDist": "../dist"
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "pnpm dev"
   },
   "app": {
     "windows": [
