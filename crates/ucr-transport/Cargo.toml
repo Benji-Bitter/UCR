@@ -1,0 +1,21 @@
+[package]
+name = "ucr-transport"
+description = "UCR transport abstraction: simulated RF, TCP gateway, USB serial"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ucr-protocol = { path = "../ucr-protocol" }
+tokio = { workspace = true }
+async-trait = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serialport = { version = "4", optional = true }
+
+[features]
+default = []
+serial = ["dep:serialport"]

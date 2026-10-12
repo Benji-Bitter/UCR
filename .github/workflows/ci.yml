@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  check:
+    name: fmt + clippy + build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: fmt
+        run: cargo fmt --all -- --check
+      - name: clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: build
+        run: cargo build --workspace
+
+  test:
+    name: tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: unit + integration tests
+        run: cargo test --workspace --exclude ucr-desktop
+      - name: mesh e2e suite
+        run: cargo test -p ucr-core --test mesh
+
+  sim-smoke:
+    name: simulator smoke run
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: ucr-sim 3-node line scenario
+        run: cargo run -p ucr-cli --bin ucr-sim -- run --nodes 3 --duration 90 --seed 7 --json

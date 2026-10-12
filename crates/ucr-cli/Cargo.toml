@@ -1,0 +1,34 @@
+[package]
+name = "ucr-cli"
+description = "UCR command-line tools: deterministic simulator runs and headless node"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "ucr-sim"
+path = "src/sim.rs"
+
+[[bin]]
+name = "ucr-node"
+path = "src/node.rs"
+
+[dependencies]
+ucr-protocol = { path = "../ucr-protocol" }
+ucr-identity = { path = "../ucr-identity" }
+ucr-crypto = { path = "../ucr-crypto" }
+ucr-transport = { path = "../ucr-transport" }
+ucr-routing = { path = "../ucr-routing" }
+ucr-storage = { path = "../ucr-storage" }
+ucr-simulator = { path = "../ucr-simulator" }
+ucr-morse = { path = "../ucr-morse" }
+ucr-core = { path = "../ucr-core" }
+tokio = { workspace = true }
+clap = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+serde_json = { workspace = true }
+serde = { workspace = true }
+rand = { workspace = true }

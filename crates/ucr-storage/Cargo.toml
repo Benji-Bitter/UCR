@@ -1,0 +1,17 @@
+[package]
+name = "ucr-storage"
+description = "UCR local persistence: identity, contacts, messages, network state"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ucr-protocol = { path = "../ucr-protocol" }
+ucr-identity = { path = "../ucr-identity" }
+redb = { workspace = true }
+serde = { workspace = true }
+postcard = { version = "1.1", features = ["alloc", "use-std"] }
+thiserror = { workspace = true }
+tracing = { workspace = true }

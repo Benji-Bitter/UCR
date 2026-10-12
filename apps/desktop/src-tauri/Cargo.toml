@@ -1,0 +1,34 @@
+[package]
+name = "ucr-desktop"
+description = "UCR desktop application backend"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+build = "build.rs"
+
+[lib]
+name = "ucr_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+ucr-core = { path = "../../../crates/ucr-core" }
+ucr-protocol = { path = "../../../crates/ucr-protocol" }
+ucr-identity = { path = "../../../crates/ucr-identity" }
+ucr-simulator = { path = "../../../crates/ucr-simulator" }
+ucr-storage = { path = "../../../crates/ucr-storage" }
+ucr-morse = { path = "../../../crates/ucr-morse" }
+ucr-transport = { path = "../../../crates/ucr-transport" }
+ucr-routing = { path = "../../../crates/ucr-routing" }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+rand = { workspace = true }
+parking_lot = { workspace = true }

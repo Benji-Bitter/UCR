@@ -1,0 +1,13 @@
+[package]
+name = "ucr-morse"
+description = "International Morse tools: WPM timing, playback scheduling, key input, training"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ucr-protocol = { path = "../ucr-protocol" }
+rand = { workspace = true }
+serde = { workspace = true }

@@ -1,0 +1,42 @@
+# Rust
+/target/
+**/target/
+*.rs.bk
+
+# Node / frontend
+node_modules/
+dist/
+dist-ssr/
+*.local
+.pnpm-store/
+
+# Tauri
+apps/desktop/src-tauri/gen/
+apps/desktop/src-tauri/target/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# Local data / secrets
+*.db
+*.redb
+data/
+*.pem
+*.key
+.env
+.env.*
+
+# ESP-IDF / firmware
+firmware/**/build/
+firmware/**/sdkconfig.old
+firmware/**/managed_components/
+
+# Simulator output
+sim-out/

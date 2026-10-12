@@ -1,0 +1,30 @@
+[package]
+name = "ucr-core"
+description = "UCR node runtime: messaging, sessions, groups, channels, emergency — the full node stack"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ucr-protocol = { path = "../ucr-protocol" }
+ucr-identity = { path = "../ucr-identity" }
+ucr-crypto = { path = "../ucr-crypto" }
+ucr-transport = { path = "../ucr-transport" }
+ucr-routing = { path = "../ucr-routing" }
+ucr-storage = { path = "../ucr-storage" }
+tokio = { workspace = true }
+serde = { workspace = true }
+postcard = { version = "1.1", features = ["alloc"] }
+blake3 = { workspace = true }
+rand = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+parking_lot = { workspace = true }
+anyhow = { workspace = true }
+
+[dev-dependencies]
+ucr-simulator = { path = "../ucr-simulator" }
+ucr-morse = { path = "../ucr-morse" }
+tokio = { version = "1", features = ["full", "test-util"] }

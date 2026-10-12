@@ -1,0 +1,18 @@
+[package]
+name = "ucr-identity"
+description = "UCR node identities: Ed25519 keypairs, NodeId derivation, packet signatures"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ucr-protocol = { path = "../ucr-protocol" }
+ed25519-dalek = { workspace = true }
+blake3 = { workspace = true }
+rand = { workspace = true }
+serde = { workspace = true }
+postcard = { version = "1.1", features = ["alloc"] }
+thiserror = { workspace = true }
+zeroize = { workspace = true }

@@ -1,0 +1,19 @@
+[package]
+name = "ucr-routing"
+description = "UCR mesh routing: neighbour table, link quality, route selection, forwarding"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ucr-protocol = { path = "../ucr-protocol" }
+ucr-transport = { path = "../ucr-transport" }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+rand = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }

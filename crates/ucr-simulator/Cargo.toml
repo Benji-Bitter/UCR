@@ -1,0 +1,23 @@
+[package]
+name = "ucr-simulator"
+description = "Deterministic RF mesh simulator: path loss, airtime, mobility, partitions"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ucr-protocol = { path = "../ucr-protocol" }
+ucr-transport = { path = "../ucr-transport" }
+tokio = { workspace = true, features = ["sync", "time", "rt"] }
+async-trait = { workspace = true }
+rand = { workspace = true }
+rand_chacha = "0.3"
+serde = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+ucr-core = { path = "../ucr-core" }
+ucr-identity = { path = "../ucr-identity" }
