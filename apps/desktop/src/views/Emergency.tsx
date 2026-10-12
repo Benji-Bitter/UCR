@@ -22,8 +22,8 @@ export default function Emergency({
 
   return (
     <div className="flex h-full gap-4">
-      <section className="w-80 shrink-0 rounded border border-danger/40 bg-panel p-4">
-        <div className="mb-1 text-lg text-danger">Emergency broadcast</div>
+      <section className="w-80 shrink-0 border-2 border-fg bg-panel p-4">
+        <div className="inv mb-1 px-1 font-bold uppercase tracking-wider">!! emergency broadcast</div>
         <div className="mb-3 text-xs text-dim">
           signed · priority-queued · flooded region-wide · relayed even past
           blocks. rate-limited to one per minute.
@@ -55,8 +55,8 @@ export default function Emergency({
             rows={3}
             className="rounded border border-line bg-panel-2 px-2 py-1.5"
           />
-          <button className="rounded border border-danger bg-danger/20 py-1.5 text-danger">
-            transmit emergency
+          <button className="inv py-1.5 font-bold uppercase tracking-wider hover:opacity-80">
+            [ transmit emergency ]
           </button>
         </form>
         {sent !== null && <div className="mt-2 text-xs text-accent">broadcast queued (id {sent})</div>}
@@ -68,9 +68,9 @@ export default function Emergency({
         {emergencies.map((e, i) => {
           const b = eventBody(e.event);
           return (
-            <div key={i} className="mb-2 rounded border border-danger/40 bg-danger/10 p-3">
+            <div key={i} className="mb-2 border-2 border-fg bg-panel-2 p-3">
               <div className="flex justify-between">
-                <span className="text-danger">
+                <span className="inv px-1 font-bold uppercase">
                   {String(b.category)} · {String(b.callsign)}
                 </span>
                 <span className="text-xs text-dim">

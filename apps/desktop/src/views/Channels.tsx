@@ -44,7 +44,7 @@ export default function Channels({
       <aside className="w-56 shrink-0">
         <div className="mb-2 text-dim">channels</div>
         <div className="flex flex-col gap-1">
-          {[...new Set([active, "ucr.public", "ucr.general", ...channels.map((c) => c.name)])].map(
+          {[...new Set(["ucr.public", "ucr.general", ...channels.map((c) => c.name), active])].map(
             (c) => (
               <button
                 key={c}

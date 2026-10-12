@@ -10,10 +10,9 @@ group communication, and emergency preparedness.
 
 **Status: early development.** The protocol core, mesh router, E2E
 cryptography, deterministic RF simulator, and CLI tools are implemented
-and tested. The desktop app runs the real node stack over the
-simulator, and the ESP32-S3 + SX1262 reference modem firmware compiles
-for the real xtensa target.
-See [ROADMAP.md](ROADMAP.md).
+and tested. The desktop app runs the real node stack over the simulator,
+and the ESP32-S3 + SX1262 reference modem firmware compiles for the real
+xtensa target. See [ROADMAP.md](ROADMAP.md).
 
 ## What works today
 
@@ -39,6 +38,96 @@ See [ROADMAP.md](ROADMAP.md).
   stack runs unmodified on it.
 - **CLI tools** — `ucr-sim` scenario runner and `ucr-node` interactive
   headless node over the TCP gateway transport.
+- **Desktop app** — Tauri 2 shell with a live ASCII globe network view
+  (drag to rotate, scroll to zoom, search places/nodes), channels, DMs,
+  groups, contacts, emergency, Morse, and a full event log.
+
+## Requirements
+
+| Tool | Why | Install |
+|------|-----|---------|
+| Rust ≥1.81 (stable) | workspace crates | `rustup` from https://rustup.rs |
+| Node ≥18 + pnpm | desktop frontend | `npm i -g pnpm` |
+| Tauri prerequisites | native window | see below |
+| espup + Xtensa toolchain | firmware builds only | `cargo install espup` |
+
+Tauri system prerequisites (one-time, for the desktop app):
+
+- **macOS** — Xcode Command Line Tools: `xcode-select --install`
+- **Linux (Debian/Ubuntu)** —
+  `sudo apt install libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf`
+- **Windows** — Microsoft C++ Build Tools + WebView2 (usually preinstalled)
+
+## Setup
+
+```bash
+git clone https://github.com/Benji-Bitter/UCR.git
+cd UCR
+
+# Rust workspace: protocol, identity, crypto, transport, routing,
+# simulator, storage, morse, core, CLI
+cargo build --workspace
+cargo test --workspace        # unit + 13-scenario mesh suite
+```
+
+## Desktop app
+
+```bash
+cd apps/desktop
+pnpm install
+
+# Native app — real Rust node stack + simulator in-process:
+pnpm tauri dev                # dev build with hot-reload
+pnpm tauri build              # release bundle (.app/.msi/deb)
+
+# Or frontend-only in a browser — runs a faithful JS port of the sim
+# (web-sim badge in the header tells you which backend is live):
+pnpm dev                      # http://localhost:1420
+```
+
+Press `[ run ]` — no radio hardware needed. The simulator spins up a line
+of nodes (count / spacing / seed configurable), they discover each other,
+and every view is live:
+
+- **network** — ASCII globe (real Natural Earth coastlines + world cities);
+  drag rotates, scroll zooms, double-click resets, `>` box searches any
+  node or place and flies there. Node pins are coarse city positions —
+  precise coordinates are never shown.
+- **channels / direct / groups / morse** — real protocol traffic.
+- **emergency** — signed broadcasts with verification state.
+- Clicking a pin selects it; `[ disable ]` partitions the node mid-mesh.
+
+## CLI tools
+
+```bash
+# Deterministic scripted scenario over simulated RF:
+cargo run -p ucr-cli --bin ucr-sim -- run --nodes 3 --duration 90 --seed 7
+
+# Two interactive nodes over the TCP gateway transport:
+cargo run -p ucr-cli --bin ucr-node -- --callsign ALPHA --listen 127.0.0.1:4400
+cargo run -p ucr-cli --bin ucr-node -- --callsign BRAVO --connect 127.0.0.1:4400
+```
+
+In `ucr-node`, bare text goes to `ucr.public`; `/help` lists commands
+(`/dm`, `/morse`, `/emergency`, `/neighbors`, `/routes`, `/stats` …).
+
+## Firmware (ESP32-S3 + SX1262)
+
+```bash
+cargo install espup && espup install   # Xtensa Rust toolchain, once
+cd firmware/ucr-modem
+cargo check                            # compiles for xtensa-esp32s3-none-elf
+# with TX enabled (RX-only is the default — see regulatory notes):
+cargo check --features tx-enable
+```
+
+Wire the SX1262 per `firmware/ucr-modem/README.md` (pin table + SPI map),
+flash with `cargo espflash flash --release --features tx-enable` after
+completing the regulatory checklist in `docs/hardware/reference.md`.
+
+Host↔modem serial framing (`[0x55 0xAA] [u16 len LE] [payload] [crc8]`)
+is shared byte-for-byte between `ucr-transport` and the firmware codec —
+cross-implementation tests live in `crates/ucr-transport/tests/serial_framing.rs`.
 
 ## Layout
 
@@ -54,29 +143,10 @@ crates/
   ucr-morse       Morse timing, playback, key decoder
   ucr-core        node runtime — composes everything behind an event API
   ucr-cli         ucr-sim + ucr-node binaries
-apps/desktop    Tauri 2 desktop application (in progress)
+apps/desktop    Tauri 2 desktop app — React/TS frontend, Rust backend
 firmware/ucr-modem  ESP32-S3 + SX1262 reference modem (esp-hal, no_std)
 docs/           protocol, architecture, security, hardware, development
 ```
-
-## Quick start
-
-```bash
-cargo build --workspace
-
-# Run the full end-to-end mesh test suite (13 scenarios):
-cargo test -p ucr-core --test mesh
-
-# Run a scripted 3-node line scenario over simulated RF:
-cargo run -p ucr-cli --bin ucr-sim -- run --nodes 3 --duration 90 --seed 7
-
-# Chat between two real nodes over the TCP gateway transport:
-cargo run -p ucr-cli --bin ucr-node -- --callsign ALPHA --listen 127.0.0.1:4400
-cargo run -p ucr-cli --bin ucr-node -- --callsign BRAVO --connect 127.0.0.1:4400
-```
-
-In `ucr-node`, bare text goes to `ucr.public`; `/help` lists commands
-(`/dm`, `/morse`, `/emergency`, `/neighbors`, `/routes`, `/stats` …).
 
 ## Design invariants
 
@@ -104,3 +174,5 @@ In `ucr-node`, bare text goes to `ucr.public`; `/help` lists commands
 ## License
 
 Apache-2.0 — see [LICENSE](LICENSE).
+
+World-city data: GeoNames dump (CC-BY 4.0). Coastlines: Natural Earth.

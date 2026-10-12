@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, NodeInfoDto, NodeVisDto, StatsDto, UcrEvent, eventKind, onUcrEvent } from "./api";
+import { api, IS_TAURI, NodeInfoDto, NodeVisDto, StatsDto, UcrEvent, eventKind, onUcrEvent } from "./api";
 import Channels from "./views/Channels";
 import Contacts from "./views/Contacts";
 import Direct from "./views/Direct";
@@ -95,15 +95,16 @@ export default function App() {
       {/* top bar */}
       <header className="flex items-center gap-3 border-b border-line px-4 py-2">
         <div className="flex items-center gap-2">
-          <span className="text-base font-bold tracking-tight">UCR</span>
+          <span className="text-base font-bold tracking-widest">UCR://</span>
           <span className="text-dim">universal citizens radio</span>
+          {!IS_TAURI && <span className="border border-line px-1 text-dim">web-sim</span>}
         </div>
         <div className="mx-2 h-5 w-px bg-line" />
         {running ? (
           <>
-            <span className="text-dim">operating node</span>
+            <span className="text-dim">node</span>
             <select
-              className="rounded border border-line bg-panel px-2 py-1"
+              className="border border-line bg-panel px-2 py-1"
               value={me}
               onChange={(e) => setMe(Number(e.target.value))}
             >
@@ -120,8 +121,11 @@ export default function App() {
                 {(stats.airtime_ms / 1000).toFixed(0)}s
               </span>
             )}
-            <button onClick={stop} className="rounded border border-line bg-panel px-3 py-1 hover:bg-panel-2">
-              stop sim
+            <button
+              onClick={stop}
+              className="border border-line bg-panel px-3 py-1 uppercase tracking-wider hover:bg-fg hover:text-ink"
+            >
+              [ stop ]
             </button>
           </>
         ) : (
@@ -139,7 +143,7 @@ export default function App() {
               max={12}
               value={nodeCount}
               onChange={(e) => setNodeCount(Number(e.target.value))}
-              className="w-14 rounded border border-line bg-panel px-2 py-1"
+              className="w-14 border border-line bg-panel px-2 py-1"
             />
             <span className="text-dim">spacing m</span>
             <input
@@ -149,17 +153,17 @@ export default function App() {
               step={50}
               value={spacing}
               onChange={(e) => setSpacing(Number(e.target.value))}
-              className="w-20 rounded border border-line bg-panel px-2 py-1"
+              className="w-20 border border-line bg-panel px-2 py-1"
             />
             <span className="text-dim">seed</span>
             <input
               type="number"
               value={seed}
               onChange={(e) => setSeed(Number(e.target.value))}
-              className="w-16 rounded border border-line bg-panel px-2 py-1"
+              className="w-16 border border-line bg-panel px-2 py-1"
             />
-            <button className="rounded border border-accent/50 bg-accent/10 px-3 py-1 text-accent hover:bg-accent/20">
-              start simulation
+            <button className="inv px-3 py-1 font-bold uppercase tracking-wider hover:opacity-80">
+              [ run ]
             </button>
           </form>
         )}
@@ -167,15 +171,16 @@ export default function App() {
 
       <div className="flex min-h-0 flex-1">
         {/* nav */}
-        <nav className="flex w-40 flex-col gap-0.5 border-r border-line p-2">
+        <nav className="flex w-44 flex-col border-r border-line py-2">
           {NAV.map(([v, label]) => (
             <button
               key={v}
               onClick={() => setView(v)}
-              className={`rounded px-3 py-1.5 text-left ${
+              className={`px-4 py-1.5 text-left uppercase tracking-wider ${
                 view === v ? "bg-panel-2 text-fg" : "text-dim hover:bg-panel hover:text-fg"
               }`}
             >
+              {view === v ? "> " : "  "}
               {label}
             </button>
           ))}
@@ -206,8 +211,14 @@ export default function App() {
 export function EmptyState() {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-2 text-dim">
-      <div className="text-4xl font-bold tracking-tight text-fg">UCR</div>
-      <div>configure a simulated mesh and press start — no radio hardware needed</div>
+      <pre className="text-fg leading-tight">
+{String.raw`██    ██  ██████  ██████
+██    ██ ██       ██   ██
+██    ██ ██       ██████
+██    ██ ██       ██   ██
+ ██████   ██████  ██   ██`}
+      </pre>
+      <div>// configure mesh parameters &gt; run — no radio hardware needed</div>
       <div className="mt-2 text-xs">everything here runs the real protocol stack, end to end</div>
     </div>
   );

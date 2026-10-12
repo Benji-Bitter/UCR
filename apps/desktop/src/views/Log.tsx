@@ -27,9 +27,16 @@ export default function Log({
           .map(([key, v]) => `${key}=${typeof v === "object" ? JSON.stringify(v) : String(v)}`)
           .join(" ")
           .slice(0, 160);
+        const mark =
+          k === "Emergency" || k === "InvalidPacket"
+            ? "[!]"
+            : k === "DirectMessage" || k === "GroupMessage" || k === "SessionEstablished"
+              ? "[+]"
+              : " · ";
         return (
           <div key={i} className="mb-0.5 flex gap-2">
             <span className="text-line">{new Date(e.at).toLocaleTimeString()}</span>
+            <span className={cls}>{mark}</span>
             <span className="text-fg">{callsign(e.node)}</span>
             <span className={cls}>{k}</span>
             <span className="truncate text-dim">{detail}</span>

@@ -1,15 +1,16 @@
 @import "tailwindcss";
 
 @theme {
-  --color-ink: #101210;
-  --color-panel: #181a18;
-  --color-panel-2: #1f221f;
-  --color-line: #2a2e2a;
-  --color-fg: #e6e9e4;
-  --color-dim: #8a918a;
-  --color-accent: #7dd87d;
-  --color-warn: #e8b447;
-  --color-danger: #e05d4f;
+  /* Strict monochrome — hacker terminal. Black surfaces, white ink. */
+  --color-ink: #000000;
+  --color-panel: #060606;
+  --color-panel-2: #0e0e0e;
+  --color-line: #242424;
+  --color-fg: #ffffff;
+  --color-dim: #7f7f7f;
+  --color-accent: #ffffff;
+  --color-warn: #c7c7c7;
+  --color-danger: #ffffff;
   --font-mono: "Berkeley Mono", "SF Mono", ui-monospace, Menlo, monospace;
 }
 
@@ -24,6 +25,19 @@ body {
   color: var(--color-fg);
   font-family: var(--font-mono);
   font-size: 13px;
+  letter-spacing: 0.01em;
+}
+
+/* Terminal aesthetic — everything square. */
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
+}
+
+::selection {
+  background: var(--color-fg);
+  color: var(--color-ink);
 }
 
 * {
@@ -36,4 +50,18 @@ select,
 textarea,
 button {
   font: inherit;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible {
+  outline: 1px solid var(--color-fg);
+  outline-offset: -1px;
+}
+
+/* Inverted emphasis — the only "colour" in the UI. */
+.inv {
+  background: var(--color-fg);
+  color: var(--color-ink);
 }

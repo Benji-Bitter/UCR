@@ -1,5 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { FallbackSim } from "./fallback-sim";
+
+// Running inside Tauri gives us the real Rust node stack; in a plain
+// browser (vite dev / preview) fall back to the JS sim port.
+export const IS_TAURI =
+  typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+const fb = IS_TAURI ? null : new FallbackSim();
 
 // ---- types ---------------------------------------------------------------
 
@@ -101,48 +108,61 @@ export function eventBody(e: Record<string, unknown>): Record<string, unknown> {
 
 export const api = {
   simStart: (count: number, spacing_m: number, seed: number) =>
-    invoke<void>("sim_start", { count, spacingM: spacing_m, seed }),
-  simStop: () => invoke<void>("sim_stop"),
-  simTopology: () => invoke<NodeVisDto[]>("sim_topology"),
-  simStats: () => invoke<StatsDto>("sim_stats"),
+    fb
+      ? fb.simStart(count, spacing_m, seed)
+      : invoke<void>("sim_start", { count, spacingM: spacing_m, seed }),
+  simStop: () => (fb ? fb.simStop() : invoke<void>("sim_stop")),
+  simTopology: () =>
+    fb ? fb.simTopology() : invoke<NodeVisDto[]>("sim_topology"),
+  simStats: () => (fb ? fb.simStats() : invoke<StatsDto>("sim_stats")),
   simSetEnabled: (idx: number, enabled: boolean) =>
-    invoke<void>("sim_set_enabled", { idx, enabled }),
+    fb ? fb.simSetEnabled(idx, enabled) : invoke<void>("sim_set_enabled", { idx, enabled }),
 
-  nodeInfo: (idx: number) => invoke<NodeInfoDto>("node_info", { idx }),
-  nodeNeighbors: (idx: number) => invoke<NeighborDto[]>("node_neighbors", { idx }),
-  nodeRoutes: (idx: number) => invoke<RouteDto[]>("node_routes", { idx }),
-  nodeChannels: (idx: number) => invoke<ChannelDto[]>("node_channels", { idx }),
-  nodeContacts: (idx: number) => invoke<ContactDto[]>("node_contacts", { idx }),
-  nodeGroups: (idx: number) => invoke<GroupDto[]>("node_groups", { idx }),
+  nodeInfo: (idx: number) =>
+    fb ? fb.nodeInfo(idx) : invoke<NodeInfoDto>("node_info", { idx }),
+  nodeNeighbors: (idx: number) =>
+    fb ? fb.nodeNeighbors(idx) : invoke<NeighborDto[]>("node_neighbors", { idx }),
+  nodeRoutes: (idx: number) =>
+    fb ? fb.nodeRoutes(idx) : invoke<RouteDto[]>("node_routes", { idx }),
+  nodeChannels: (idx: number) =>
+    fb ? fb.nodeChannels(idx) : invoke<ChannelDto[]>("node_channels", { idx }),
+  nodeContacts: (idx: number) =>
+    fb ? fb.nodeContacts(idx) : invoke<ContactDto[]>("node_contacts", { idx }),
+  nodeGroups: (idx: number) =>
+    fb ? fb.nodeGroups(idx) : invoke<GroupDto[]>("node_groups", { idx }),
   nodeDmHistory: (idx: number, peer: string) =>
-    invoke<StoredMsg[]>("node_dm_history", { idx, peer }),
+    fb ? fb.nodeDmHistory(idx, peer) : invoke<StoredMsg[]>("node_dm_history", { idx, peer }),
   nodeChannelHistory: (idx: number, channel: string) =>
-    invoke<StoredMsg[]>("node_channel_history", { idx, channel }),
-  nodeStats: (idx: number) => invoke<{ router: string }>("node_stats", { idx }),
+    fb ? fb.nodeChannelHistory(idx, channel) : invoke<StoredMsg[]>("node_channel_history", { idx, channel }),
+  nodeStats: (idx: number) =>
+    fb ? fb.nodeStats(idx) : invoke<{ router: string }>("node_stats", { idx }),
 
-  joinChannel: (idx: number, name: string) => invoke<string>("join_channel", { idx, name }),
+  joinChannel: (idx: number, name: string) =>
+    fb ? fb.joinChannel(idx, name) : invoke<string>("join_channel", { idx, name }),
   sendChannelText: (idx: number, channel: string, text: string) =>
-    invoke<number>("send_channel_text", { idx, channel, text }),
+    fb ? fb.sendChannelText(idx, channel, text) : invoke<number>("send_channel_text", { idx, channel, text }),
   sendDm: (idx: number, peer: string, text: string) =>
-    invoke<number>("send_dm", { idx, peer, text }),
+    fb ? fb.sendDm(idx, peer, text) : invoke<number>("send_dm", { idx, peer, text }),
   sendMorse: (idx: number, peer: string, text: string, wpm: number) =>
-    invoke<number>("send_morse", { idx, peer, text, wpm }),
+    fb ? fb.sendMorse(idx, peer, text, wpm) : invoke<number>("send_morse", { idx, peer, text, wpm }),
   sendEmergency: (idx: number, category: string, text: string) =>
-    invoke<number>("send_emergency", { idx, category, text }),
+    fb ? fb.sendEmergency(idx, category, text) : invoke<number>("send_emergency", { idx, category, text }),
   createGroup: (idx: number, name: string, desc: string) =>
-    invoke<string>("create_group", { idx, name, desc }),
+    fb ? fb.createGroup(idx, name, desc) : invoke<string>("create_group", { idx, name, desc }),
   inviteGroup: (idx: number, groupId: string, peer: string) =>
-    invoke<void>("invite_group", { idx, groupId, peer }),
+    fb ? fb.inviteGroup(idx, groupId, peer) : invoke<void>("invite_group", { idx, groupId, peer }),
   acceptGroup: (idx: number, groupId: string) =>
-    invoke<void>("accept_group", { idx, groupId }),
+    fb ? fb.acceptGroup(idx, groupId) : invoke<void>("accept_group", { idx, groupId }),
   sendGroupText: (idx: number, groupId: string, text: string) =>
-    invoke<number>("send_group_text", { idx, groupId, text }),
+    fb ? fb.sendGroupText(idx, groupId, text) : invoke<number>("send_group_text", { idx, groupId, text }),
   acceptContact: (idx: number, peer: string) =>
-    invoke<void>("accept_contact", { idx, peer }),
+    fb ? fb.acceptContact(idx, peer) : invoke<void>("accept_contact", { idx, peer }),
   blockContact: (idx: number, peer: string) =>
-    invoke<void>("block_contact", { idx, peer }),
-  subscribeEvents: () => invoke<void>("subscribe_events"),
+    fb ? fb.blockContact(idx, peer) : invoke<void>("block_contact", { idx, peer }),
+  subscribeEvents: () => (fb ? fb.subscribeEvents() : invoke<void>("subscribe_events")),
 };
 
 export const onUcrEvent = (cb: (e: UcrEvent) => void) =>
-  listen<UcrEvent>("ucr:event", (ev) => cb(ev.payload));
+  fb
+    ? fb.onEvent(cb)
+    : listen<UcrEvent>("ucr:event", (ev) => cb(ev.payload));
