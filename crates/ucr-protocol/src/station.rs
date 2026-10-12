@@ -109,12 +109,73 @@ impl CoarsePos {
     /// Approximate great-circle distance to another position in metres.
     pub fn distance_m(&self, other: &CoarsePos) -> f64 {
         let r = 6_371_000.0_f64;
-        let d_lat = (other.lat() - self.lat()).to_radians();
-        let d_lon = (other.lon() - self.lon()).to_radians();
-        let a = (d_lat / 2.0).sin().powi(2)
-            + self.lat().to_radians().cos()
-                * other.lat().to_radians().cos()
-                * (d_lon / 2.0).sin().powi(2);
-        2.0 * r * a.sqrt().asin()
+        let d_lat = to_radians(other.lat() - self.lat());
+        let d_lon = to_radians(other.lon() - self.lon());
+        let a = powi(sin(d_lat / 2.0), 2)
+            + cos(to_radians(self.lat()))
+                * cos(to_radians(other.lat()))
+                * powi(sin(d_lon / 2.0), 2);
+        2.0 * r * asin(sqrt(a))
     }
+}
+
+#[cfg(feature = "std")]
+#[inline]
+fn to_radians(d: f64) -> f64 {
+    d.to_radians()
+}
+#[cfg(not(feature = "std"))]
+#[inline]
+fn to_radians(d: f64) -> f64 {
+    d * (core::f64::consts::PI / 180.0)
+}
+#[cfg(feature = "std")]
+#[inline]
+fn sin(x: f64) -> f64 {
+    x.sin()
+}
+#[cfg(not(feature = "std"))]
+#[inline]
+fn sin(x: f64) -> f64 {
+    libm::sin(x)
+}
+#[cfg(feature = "std")]
+#[inline]
+fn cos(x: f64) -> f64 {
+    x.cos()
+}
+#[cfg(not(feature = "std"))]
+#[inline]
+fn cos(x: f64) -> f64 {
+    libm::cos(x)
+}
+#[cfg(feature = "std")]
+#[inline]
+fn asin(x: f64) -> f64 {
+    x.asin()
+}
+#[cfg(not(feature = "std"))]
+#[inline]
+fn asin(x: f64) -> f64 {
+    libm::asin(x)
+}
+#[cfg(feature = "std")]
+#[inline]
+fn sqrt(x: f64) -> f64 {
+    x.sqrt()
+}
+#[cfg(not(feature = "std"))]
+#[inline]
+fn sqrt(x: f64) -> f64 {
+    libm::sqrt(x)
+}
+#[cfg(feature = "std")]
+#[inline]
+fn powi(x: f64, n: i32) -> f64 {
+    x.powi(n)
+}
+#[cfg(not(feature = "std"))]
+#[inline]
+fn powi(x: f64, n: i32) -> f64 {
+    libm::pow(x, n as f64)
 }

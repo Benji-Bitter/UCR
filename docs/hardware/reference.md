@@ -9,13 +9,13 @@ trait accepts any radio.
 
 ```
 ┌─────────────────────────────────────────────┐
-│ ucr-firmware (no_std Rust, esp-hal)         │
+│ ucr-modem (no_std Rust, esp-hal)            │
 │  ├─ ucr-protocol (shared — same wire bytes) │
-│  ├─ SX1262 driver (SPI)                     │
+│  ├─ SX1262 driver (embedded-hal SPI)        │
 │  ├─ radio task: CAD/LBT → TX/RX             │
 │  └─ host link: framed serial protocol       │
 └──────────────┬──────────────────────────────┘
-               │ USB serial (or SPI direct)
+               │ USB serial
 ┌──────────────▼──────────────────────────────┐
 │ Host (desktop / ucr-node)                   │
 │   SerialTransport ⇄ full UCR node stack     │
@@ -23,27 +23,52 @@ trait accepts any radio.
 ```
 
 The firmware is a *modem*: it does channel access (CAD listen-before-
-talk), airtime/duty enforcement, and frame passthrough. All routing,
-crypto, and app logic stays in `ucr-core` — one implementation, every
-platform. A future standalone mode can run `ucr-core` on-device for
-nodes without a host.
+talk) and frame passthrough. All routing, crypto, and app logic stays in
+`ucr-core` — one implementation, every platform. A future standalone mode
+can run `ucr-core` on-device for nodes without a host.
 
-## Serial framing (docs/protocol/serial.md — draft)
+Implementation: `firmware/ucr-modem/` — see its README for toolchain,
+pin map, and flashing.
 
-Length-prefixed frames: `0x55, proto_ver, profile_id, mtu(2B)` hello at
-open (same handshake as `TcpTransport`), then `len(2B) + frame` in both
-directions. RX metadata frames carry `{rssi_dbm, snr_db}` when the radio
-reports them; otherwise `RxMeta::unmeasured`.
+## Serial framing
+
+Implemented and documented in `docs/protocol/serial.md`:
+`[0x55 0xAA] [u16 len LE] [payload] [crc8]` both directions; downstream
+payloads append `rssi_i16_le || snr_i8 || 0xA5`. No open-time handshake —
+the modem is stateless.
 
 ## Radio bring-up checklist
 
-1. SPI init + SX1262 reset/NSS/DIO1 mapping per board.
-2. SetPacketType(LoRa), frequency per `RadioProfile`.
-3. Modulation params: SF/BW/CR from profile; LDRO as required.
-4. PA config + TX power clamp per regulatory table.
-5. RX continuous + CAD before every TX (LBT).
-6. Airtime computation (Semtech formula) → duty budget accounting.
-7. Frame pipe: serial RX → air TX; air RX → serial TX + RSSI/SNR.
+1. SPI init + SX1262 reset/NSS/DIO1/BUSY mapping per board (`main.rs`).
+2. Module options: TCXO on DIO3? RF switch on DIO2? (`module_options`).
+3. SetPacketType(LoRa), frequency per `RadioProfile`.
+4. Modulation params: SF/BW/CR from profile; LDRO at SF11+.
+5. PA config + TX power per regulatory table — **TX is feature-gated
+   (`tx-enable`) until `docs/hardware/regulatory.md` is complete**.
+6. RX continuous + CAD before every TX (LBT).
+7. Frame pipe: serial RX → air TX; air RX → serial TX + RSSI/SNR trailer.
+
+## Porting the modem (HAL guide)
+
+`sx1262.rs` is written against `embedded-hal` traits, not esp-hal types —
+porting means supplying your platform's HAL, not rewriting the driver:
+
+| Driver needs         | embedded-hal trait | ESP32-S3 impl        |
+|----------------------|--------------------|----------------------|
+| SPI + chip select    | `SpiDevice`        | `ExclusiveDevice`    |
+| BUSY line            | `InputPin`         | `gpio::Input`        |
+| RESET line           | `OutputPin`        | `gpio::Output`       |
+| DIO1 IRQ line        | `InputPin`         | `gpio::Input`        |
+| timeouts             | `fn() -> u64` ms   | `Instant` clock      |
+| host link            | byte read/write    | `UsbSerialJtag`      |
+
+To port to e.g. STM32 + SX1262 or nRF52840: swap the `spi`, `busy`,
+`reset`, `dio1`, `now_ms`, and host-link halves of `main.rs`. `framing.rs`
+and `sx1262.rs` are platform-agnostic already.
+
+To use a different radio entirely (SX1276, custom): keep `framing.rs`
+byte-identical and replace `sx1262.rs` — the host never sees the radio,
+only the serial contract.
 
 ## Why SX1262
 

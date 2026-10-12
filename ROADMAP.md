@@ -21,8 +21,10 @@
 
 ## Phase 3 — Real radios
 
-- [ ] ESP32-S3 + SX1262 reference firmware (serial modem mode)
-- [ ] `SerialTransport` host driver + auto-detect
+- [x] ESP32-S3 + SX1262 reference firmware (serial modem mode,
+      `firmware/ucr-modem` — compiles for xtensa; RX + gated TX)
+- [x] `SerialTransport` host driver (framing verified against the
+      firmware codec; auto-detect pending hardware)
 - [ ] Region profiles flipped to `tx_allowed` per
       `docs/hardware/regulatory.md` sign-off
 - [ ] Field-test reports: range, multi-hop reliability, interference

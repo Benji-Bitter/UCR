@@ -1,0 +1,35 @@
+# Not a member of the host workspace — this crate targets xtensa-esp32s3
+# under the `esp` toolchain channel (see rust-toolchain.toml).
+[workspace]
+
+[package]
+name = "ucr-modem"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "UCR radio modem firmware — ESP32-S3 + Semtech SX1262"
+
+[dependencies]
+# esp-hal 1.0 gates drivers (SPI, USB-JTAG, GPIO config) behind `unstable`.
+esp-hal = { version = "1.0", features = ["esp32s3", "unstable"] }
+esp-alloc = { version = "0.11", features = ["esp32s3"] }
+esp-backtrace = { version = "0.18", features = ["esp32s3", "panic-handler", "println"] }
+# `uart` = log on UART0 (keeps USB-JTAG clean for the framed host link).
+esp-println = { version = "0.16", default-features = false, features = ["esp32s3", "uart"] }
+embedded-hal = "1.0"
+embedded-hal-bus = "0.3"
+embedded-hal-nb = "1.0"
+nb = "1.1"
+heapless = "0.8"
+ucr-protocol = { path = "../../crates/ucr-protocol", default-features = false }
+
+[features]
+# Enable radio transmit. Leave OFF until the regulatory checklist in
+# docs/hardware/regulatory.md is complete — RX works either way.
+tx-enable = []
+
+[profile.release]
+opt-level = "s"
+lto = "fat"
+codegen-units = 1
+debug = true

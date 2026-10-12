@@ -110,7 +110,12 @@ fn with_node<R>(st: &AppState, idx: usize, f: impl FnOnce(&Node) -> R) -> Result
 // ---------------------------------------------------------------------------
 
 #[tauri::command]
-fn sim_start(state: State<'_, AppState>, count: usize, spacing_m: f32, seed: u64) -> Result<(), String> {
+fn sim_start(
+    state: State<'_, AppState>,
+    count: usize,
+    spacing_m: f32,
+    seed: u64,
+) -> Result<(), String> {
     sim_stop(state.clone());
     let n = count.clamp(2, 12);
     let cfg = SimConfig {
@@ -131,30 +136,28 @@ fn sim_start(state: State<'_, AppState>, count: usize, spacing_m: f32, seed: u64
         }
     });
 
-    let nodes = state
-        .rt
-        .block_on(async {
-            let mut out = Vec::new();
-            for (i, t) in transports.into_iter().enumerate() {
-                let node = NodeBuilder::new()
-                    .config(NodeConfig {
-                        callsign: format!("SIM-{:02}", i),
-                        desc: "simulated node".into(),
-                        class: StationClass::Individual,
-                        beacon_base_ms: 1_200,
-                        maintenance_ms: 100,
-                        ack_timeout_ms: 3_000,
-                        emergency_cooldown_ms: 1_000,
-                        ..Default::default()
-                    })
-                    .pid_seed(1000 * (i as u32 + 1))
-                    .start(t)
-                    .await
-                    .expect("node start");
-                out.push(node);
-            }
-            out
-        });
+    let nodes = state.rt.block_on(async {
+        let mut out = Vec::new();
+        for (i, t) in transports.into_iter().enumerate() {
+            let node = NodeBuilder::new()
+                .config(NodeConfig {
+                    callsign: format!("SIM-{:02}", i),
+                    desc: "simulated node".into(),
+                    class: StationClass::Individual,
+                    beacon_base_ms: 1_200,
+                    maintenance_ms: 100,
+                    ack_timeout_ms: 3_000,
+                    emergency_cooldown_ms: 1_000,
+                    ..Default::default()
+                })
+                .pid_seed(1000 * (i as u32 + 1))
+                .start(t)
+                .await
+                .expect("node start");
+            out.push(node);
+        }
+        out
+    });
 
     *state.sim.lock() = Some(SimHandle {
         world,
@@ -183,7 +186,8 @@ fn sim_topology(state: State<'_, AppState>) -> Result<Vec<NodeVisDto>, String> {
     let sim = state.sim.lock();
     let sim = sim.as_ref().ok_or("simulator not running")?;
     let vis = sim.world.node_vis();
-    Ok(vis.iter()
+    Ok(vis
+        .iter()
         .enumerate()
         .map(|(i, v)| NodeVisDto {
             id: v.id,
@@ -331,10 +335,7 @@ fn node_dm_history(
 ) -> Result<Vec<serde_json::Value>, String> {
     let peer = NodeId::from_hex(&peer).ok_or("bad node id")?;
     with_node(&state, idx, |n| {
-        n.dm_history(&peer, 200)
-            .iter()
-            .map(msg_json)
-            .collect()
+        n.dm_history(&peer, 200).iter().map(msg_json).collect()
     })
 }
 
@@ -389,11 +390,14 @@ fn send_channel_text(
 }
 
 #[tauri::command]
-fn send_dm(state: State<'_, AppState>, idx: usize, peer: String, text: String) -> Result<u64, String> {
+fn send_dm(
+    state: State<'_, AppState>,
+    idx: usize,
+    peer: String,
+    text: String,
+) -> Result<u64, String> {
     let peer = NodeId::from_hex(&peer).ok_or("bad node id")?;
-    with_node(&state, idx, |n| {
-        n.send_dm(peer, &text).map_err(short_err)
-    })?
+    with_node(&state, idx, |n| n.send_dm(peer, &text).map_err(short_err))?
 }
 
 #[tauri::command]
@@ -432,9 +436,16 @@ fn send_emergency(
 }
 
 #[tauri::command]
-fn create_group(state: State<'_, AppState>, idx: usize, name: String, desc: String) -> Result<String, String> {
+fn create_group(
+    state: State<'_, AppState>,
+    idx: usize,
+    name: String,
+    desc: String,
+) -> Result<String, String> {
     with_node(&state, idx, |n| {
-        n.create_group(&name, &desc).map(|g| g.to_string()).map_err(short_err)
+        n.create_group(&name, &desc)
+            .map(|g| g.to_string())
+            .map_err(short_err)
     })?
 }
 

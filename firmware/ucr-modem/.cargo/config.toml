@@ -1,0 +1,13 @@
+[target.xtensa-esp32s3-none-elf]
+runner = "espflash flash --monitor"
+
+[build]
+target = "xtensa-esp32s3-none-elf"
+rustflags = [
+  "-C", "link-arg=-nostartfiles",
+]
+
+# Bare-metal target: core/alloc built from rust-src (prebuilt std only
+# exists for the -espidf targets in the esp toolchain).
+[unstable]
+build-std = ["core", "alloc"]

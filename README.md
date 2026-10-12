@@ -10,7 +10,9 @@ group communication, and emergency preparedness.
 
 **Status: early development.** The protocol core, mesh router, E2E
 cryptography, deterministic RF simulator, and CLI tools are implemented
-and tested. The desktop app and reference firmware are in progress.
+and tested. The desktop app runs the real node stack over the
+simulator, and the ESP32-S3 + SX1262 reference modem firmware compiles
+for the real xtensa target.
 See [ROADMAP.md](ROADMAP.md).
 
 ## What works today
@@ -53,7 +55,7 @@ crates/
   ucr-core        node runtime — composes everything behind an event API
   ucr-cli         ucr-sim + ucr-node binaries
 apps/desktop    Tauri 2 desktop application (in progress)
-firmware/       ESP32-S3 + SX1262 reference firmware (planned)
+firmware/ucr-modem  ESP32-S3 + SX1262 reference modem (esp-hal, no_std)
 docs/           protocol, architecture, security, hardware, development
 ```
 
@@ -94,7 +96,9 @@ In `ucr-node`, bare text goes to `ucr.public`; `/help` lists commands
 - [docs/protocol/wire-format.md](docs/protocol/wire-format.md) — packet & crypto spec
 - [docs/architecture/overview.md](docs/architecture/overview.md) — crate map & data flow
 - [docs/security/model.md](docs/security/model.md) — threat model & crypto rationale
-- [docs/hardware/reference.md](docs/hardware/reference.md) — firmware plan (ESP32-S3/SX1262)
+- [docs/hardware/reference.md](docs/hardware/reference.md) — firmware plan + HAL porting guide
+- [docs/protocol/serial.md](docs/protocol/serial.md) — host↔modem serial protocol
+- [firmware/ucr-modem/README.md](firmware/ucr-modem/README.md) — build & flash
 - [CONTRIBUTING.md](CONTRIBUTING.md) · [ROADMAP.md](ROADMAP.md)
 
 ## License

@@ -116,8 +116,10 @@ async fn send_channel_until(
         node.send_channel_text(ch, text).expect("send");
         let got = wait_event(
             rx,
-            |e| matches!(e, NodeEvent::ChannelMessage { text: t, hops, .. }
-                if t == text && *hops >= min_hops),
+            |e| {
+                matches!(e, NodeEvent::ChannelMessage { text: t, hops, .. }
+                if t == text && *hops >= min_hops)
+            },
             2_500,
         )
         .await;

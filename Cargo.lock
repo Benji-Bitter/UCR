@@ -2112,6 +2112,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "libm"
+version = "0.2.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6d2cec3eae94f9f509c767b45932f1ada8350c4bdb85af2fcab4a3c14807981"
+
+[[package]]
 name = "libredox"
 version = "0.1.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4299,7 +4305,7 @@ dependencies = [
  "postcard",
  "rand",
  "serde",
- "thiserror 1.0.69",
+ "thiserror 2.0.21",
  "tokio",
  "tracing",
  "ucr-crypto",
@@ -4323,7 +4329,7 @@ dependencies = [
  "rand",
  "serde",
  "sha2",
- "thiserror 1.0.69",
+ "thiserror 2.0.21",
  "tracing",
  "ucr-protocol",
  "x25519-dalek",
@@ -4362,7 +4368,7 @@ dependencies = [
  "postcard",
  "rand",
  "serde",
- "thiserror 1.0.69",
+ "thiserror 2.0.21",
  "ucr-protocol",
  "zeroize",
 ]
@@ -4382,9 +4388,10 @@ version = "0.1.0"
 dependencies = [
  "blake3",
  "heapless 0.8.0",
+ "libm",
  "postcard",
  "serde",
- "thiserror 1.0.69",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -4393,7 +4400,7 @@ version = "0.1.0"
 dependencies = [
  "rand",
  "serde",
- "thiserror 1.0.69",
+ "thiserror 2.0.21",
  "tokio",
  "tracing",
  "ucr-protocol",
@@ -4408,7 +4415,7 @@ dependencies = [
  "rand",
  "rand_chacha",
  "serde",
- "thiserror 1.0.69",
+ "thiserror 2.0.21",
  "tokio",
  "tracing",
  "ucr-core",
@@ -4424,7 +4431,7 @@ dependencies = [
  "postcard",
  "redb",
  "serde",
- "thiserror 1.0.69",
+ "thiserror 2.0.21",
  "tracing",
  "ucr-identity",
  "ucr-protocol",
@@ -4437,7 +4444,7 @@ dependencies = [
  "async-trait",
  "serde",
  "serialport",
- "thiserror 1.0.69",
+ "thiserror 2.0.21",
  "tokio",
  "tracing",
  "ucr-protocol",

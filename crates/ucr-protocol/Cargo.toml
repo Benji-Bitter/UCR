@@ -8,12 +8,17 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-serde = { workspace = true }
-postcard = { version = "1.1", features = ["alloc", "use-std"] }
-blake3 = { workspace = true }
+# Declared directly (not via workspace) so this crate stays no_std-clean
+# when built for firmware — feature unification with the workspace's
+# std-enabled copies only happens in host builds.
+serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
+postcard = { version = "1.1", features = ["alloc"] }
+blake3 = { version = "1", default-features = false }
 heapless = { workspace = true }
-thiserror = { workspace = true }
+thiserror = { version = "2", default-features = false }
+# Trig for CoarsePos::distance_m on no_std targets (firmware); unused on std.
+libm = { version = "0.2" }
 
 [features]
 default = ["std"]
-std = []
+std = ["postcard/use-std", "serde/std", "thiserror/std", "blake3/std"]
