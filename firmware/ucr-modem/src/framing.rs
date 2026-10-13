@@ -8,6 +8,12 @@
 pub const SYNC: [u8; 2] = [0x55, 0xAA];
 pub const META_VALID: u8 = 0xA5;
 pub const META_TRAILER: usize = 4;
+
+/// Serial-side handshake, identical to `ucr-transport::serial`: the host
+/// sends `PING`, the modem answers with `IDENT`. Never reaches the radio —
+/// it is a control conversation so `rx-only` builds still answer it.
+pub const PING: &[u8] = b"UCRPING";
+pub const IDENT: &[u8] = b"UCRMODEM ucr-modem/0.1 esp32-sx1262";
 /// Shared protocol bound — `ucr_protocol::MAX_PACKET_SIZE` (512).
 /// Wire MTU for LoRa profiles is smaller (222) and enforced host-side.
 pub const MAX_FRAME: usize = ucr_protocol::MAX_PACKET_SIZE;

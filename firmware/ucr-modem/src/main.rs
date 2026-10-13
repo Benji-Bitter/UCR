@@ -129,14 +129,21 @@ fn main() -> ! {
         // -- host → radio --------------------------------------------------
         while let Ok(b) = usb.read_byte() {
             if let Some(len) = dec.feed(b) {
-                #[cfg(feature = "tx-enable")]
-                {
-                    tx_with_lbt(&mut radio, dec.payload(len), &delay);
-                }
-                #[cfg(not(feature = "tx-enable"))]
-                {
-                    let _ = len;
-                    println!("ucr-modem: TX frame dropped (receive-only build)");
+                // Serial-side handshake: answer the host's probe without
+                // touching the radio, on every build (rx-only included).
+                if dec.payload(len) == framing::PING {
+                    let n = framing::encode(framing::IDENT, None, &mut tx_frame);
+                    write_all(&mut usb, &tx_frame[..n]);
+                } else {
+                    #[cfg(feature = "tx-enable")]
+                    {
+                        tx_with_lbt(&mut radio, dec.payload(len), &delay);
+                    }
+                    #[cfg(not(feature = "tx-enable"))]
+                    {
+                        let _ = len;
+                        println!("ucr-modem: TX frame dropped (receive-only build)");
+                    }
                 }
                 dec.reset();
             }

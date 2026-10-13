@@ -127,6 +127,31 @@ struct NodeInfoDto {
     pubkey: String,
 }
 
+/// A serial port that might be a radio — `is_modem` means it answered the
+/// UCRPING handshake, so we know it's a UCR accessory rather than a guess.
+#[derive(Serialize)]
+struct DetectDto {
+    path: String,
+    label: String,
+    is_modem: bool,
+    modem_info: Option<String>,
+}
+
+/// Enumerate USB serial devices and probe each for the UCR modem
+/// handshake. Runs on a plain thread (serialport is sync) — fine here.
+#[tauri::command]
+fn detect_hardware() -> Vec<DetectDto> {
+    ucr_transport::detect::detect_serial_devices(115_200, std::time::Duration::from_millis(700))
+        .into_iter()
+        .map(|d| DetectDto {
+            path: d.path,
+            label: d.label,
+            is_modem: d.is_modem,
+            modem_info: d.modem_info,
+        })
+        .collect()
+}
+
 fn short_err<E: std::fmt::Debug>(e: E) -> String {
     format!("{e:?}")
 }
@@ -854,6 +879,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             sim_start,
             sim_stop,
+            detect_hardware,
             real_start,
             real_stop,
             sim_topology,

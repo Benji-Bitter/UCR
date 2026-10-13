@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, IS_TAURI, NodeInfoDto, NodeVisDto, StatsDto, UcrEvent, eventKind, onUcrEvent } from "./api";
+import { api, DetectDto, IS_TAURI, NodeInfoDto, NodeVisDto, StatsDto, UcrEvent, eventKind, onUcrEvent } from "./api";
 import { CITIES } from "./views/Network";
 import Channels from "./views/Channels";
 import Contacts from "./views/Contacts";
@@ -44,6 +44,9 @@ export default function App() {
   const [serialPath, setSerialPath] = useState("");
   const [posIdx, setPosIdx] = useState("");
   const [startErr, setStartErr] = useState("");
+  // Hardware scan results — refreshed while the online form is open so a
+  // freshly-plugged modem appears without a manual rescan.
+  const [devices, setDevices] = useState<DetectDto[]>([]);
   const eventsRef = useRef(events);
   eventsRef.current = events;
 
@@ -84,6 +87,33 @@ export default function App() {
       clearInterval(id);
     };
   }, [running]);
+
+  // Poll for attached hardware while the live form is open.
+  useEffect(() => {
+    if (running || form !== "real" || !IS_TAURI) return;
+    let live = true;
+    const scan = async () => {
+      try {
+        const d = await api.detectHardware();
+        if (live) setDevices(d);
+      } catch {
+        /* scan failures are quiet — the picker just stays empty */
+      }
+    };
+    void scan();
+    const id = setInterval(scan, 3000);
+    return () => {
+      live = false;
+      clearInterval(id);
+    };
+  }, [running, form]);
+
+  // Auto-pick a lone UCR modem — "plug it in and it configures itself".
+  useEffect(() => {
+    if (serialPath) return;
+    const modems = devices.filter((d) => d.is_modem);
+    if (modems.length === 1) setSerialPath(modems[0].path);
+  }, [devices, serialPath]);
 
   // Event stream subscription.
   useEffect(() => {
@@ -243,13 +273,30 @@ export default function App() {
               placeholder="host:4402"
               className="w-28 border border-line bg-panel px-2 py-1 placeholder:text-dim"
             />
-            <span className="text-dim">serial</span>
-            <input
-              value={serialPath}
-              onChange={(e) => setSerialPath(e.target.value)}
-              placeholder="/dev/tty…"
-              className="w-24 border border-line bg-panel px-2 py-1 placeholder:text-dim"
-            />
+            <span className="text-dim">radio</span>
+            <select
+              value={devices.some((d) => d.path === serialPath) ? serialPath : serialPath === "" ? "" : "__manual"}
+              onChange={(e) => setSerialPath(e.target.value === "__manual" ? serialPath : e.target.value)}
+              className="border border-line bg-panel px-2 py-1"
+            >
+              <option value="">no serial modem</option>
+              {devices.map((d) => (
+                <option key={d.path} value={d.path}>
+                  {d.is_modem ? "◉ " : ""}
+                  {d.label}
+                  {d.is_modem && d.modem_info ? ` (${d.modem_info})` : ` — ${d.path}`}
+                </option>
+              ))}
+              {serialPath && !devices.some((d) => d.path === serialPath) && (
+                <option value="__manual">{serialPath}</option>
+              )}
+            </select>
+            {devices.length === 0 && IS_TAURI && (
+              <span className="text-dim">(scanning usb…)</span>
+            )}
+            {devices.length > 0 && !devices.some((d) => d.is_modem) && (
+              <span className="text-dim">(no ucr modem — ports listed are unprobed)</span>
+            )}
             <select
               value={posIdx}
               onChange={(e) => setPosIdx(e.target.value)}

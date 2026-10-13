@@ -105,11 +105,20 @@ pnpm dev                      # http://localhost:1420
 
 Press `[ go online ]`. That starts a real node: UDP broadcast on the LAN
 port you pick (default 4401), a TCP listener for gateways (default 4402),
-an optional dial-out peer (`host:port`), and an optional serial modem
-(`/dev/tty...`). Two instances on the same LAN, or two machines on the
-same network, exchange real UCR packets: beacons, signed floods,
-encrypted DMs. The node's identity persists between launches in the app
-data dir. Your OS may ask to allow the ports once (firewall).
+an optional dial-out peer (`host:port`), and an optional serial modem.
+
+**Hardware autodetect.** While the online form is open the app scans USB
+serial continuously and probes every candidate with a `UCRPING` handshake —
+a `ucr-modem` firmware answers with its ident string, gets marked `◉`, and
+is auto-selected when it's the only one. Attach it and the whole stack
+retunes: wire packets cap at 222 bytes (one SX1262 frame), beacons pace to
+the LoRa airtime budget (~37s at SF9), the header shows
+`au ism 915 lora 1750bps · mtu 222`, and voice gates itself off because
+ADPCM can't fit a 1.75kbit/s link. Plug nothing in and you get the IP
+profile: fast beacons, PTT voice, wide frames. Ports that don't answer
+the handshake are still listed, marked unprobed, in case your firmware
+predates the ping reply. Push-to-talk also checks for actual microphone
+hardware before offering itself.
 
 `[ run sim ]` instead spins up the deterministic test world: a line of
 simulated nodes (count, spacing, seed configurable) that discover each

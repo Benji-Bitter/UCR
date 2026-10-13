@@ -23,6 +23,8 @@ export default function Channels({
   const [ptt, setPtt] = useState(false);
   const [talker, setTalker] = useState<string | null>(null);
   const [micErr, setMicErr] = useState("");
+  // hardware: does this machine even have a mic?
+  const [hasMic, setHasMic] = useState<boolean | null>(null);
   const txRef = useRef<VoiceTx | null>(null);
   const rxRef = useRef(new VoiceRx());
   const txIdRef = useRef(0);
@@ -30,6 +32,23 @@ export default function Channels({
   const talkerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeRef = useRef(active);
   activeRef.current = active;
+
+  // Detect microphone hardware — no point offering PTT with nothing to
+  // capture on. Re-checks when devices change (headset plug/unplug).
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const devs = await navigator.mediaDevices?.enumerateDevices();
+        setHasMic(devs ? devs.some((d) => d.kind === "audioinput") : null);
+      } catch {
+        setHasMic(null);
+      }
+    };
+    void check();
+    navigator.mediaDevices?.addEventListener?.("devicechange", check);
+    return () =>
+      navigator.mediaDevices?.removeEventListener?.("devicechange", check);
+  }, []);
 
   const refresh = async () => {
     setChannels(await api.nodeChannels(me));
@@ -179,6 +198,8 @@ export default function Channels({
               {link.link_mtu} can't carry adpcm; codec2 voice lands with the
               sx1262 firmware
             </div>
+          ) : hasMic === false ? (
+            <div className="text-dim">[ no mic found ] — plug in a microphone to transmit</div>
           ) : (
             <button
               onPointerDown={() => void pttDown()}

@@ -23,6 +23,8 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
+#[cfg(feature = "serial")]
+pub mod detect;
 pub mod mux;
 #[cfg(feature = "serial")]
 pub mod serial;

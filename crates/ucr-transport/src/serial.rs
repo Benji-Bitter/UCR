@@ -26,6 +26,14 @@ const MAX_FRAME: usize = ucr_protocol::MAX_PACKET_SIZE;
 /// `payload = frame || rssi_i16_le || snr_i8 || rssi_valid`
 const META_TRAILER: usize = 4;
 
+/// Control frame payloads — a serial-side handshake that never reaches RF.
+/// A host sends `PING`; a UCR modem replies with a frame whose payload is
+/// `IDENT_PREFIX` + an info string (firmware name, radio parameters).
+/// These bytes can't alias a UCR wire packet: real packets begin with
+/// MAGIC 0x55 + PROTOCOL_VERSION, and 'C' is not a valid version.
+pub const PING: &[u8] = b"UCRPING";
+pub const IDENT_PREFIX: &[u8] = b"UCRMODEM ";
+
 fn crc8(data: &[u8]) -> u8 {
     // CRC-8/SMBUS (poly 0x07)
     let mut crc = 0u8;
@@ -90,6 +98,19 @@ impl SerialTransport {
             .map(|ports| ports.into_iter().map(|p| p.port_name).collect())
             .unwrap_or_default()
     }
+}
+
+/// Serialize one payload as a host→accessory frame and write it.
+/// Shared by the transport's `send` and the modem probe in `detect`.
+pub(crate) fn write_frame(port: &mut Box<dyn SerialPort>, payload: &[u8]) -> std::io::Result<()> {
+    let mut pkt = Vec::with_capacity(payload.len() + 5);
+    pkt.extend_from_slice(&SYNC);
+    pkt.extend_from_slice(&(payload.len() as u16).to_le_bytes());
+    pkt.extend_from_slice(payload);
+    pkt.push(crc8(payload));
+    port.write_all(&pkt)?;
+    port.flush()?;
+    Ok(())
 }
 
 fn reader_loop(
@@ -175,14 +196,8 @@ impl Transport for SerialTransport {
         if !self.alive.load(Ordering::Relaxed) {
             return Err(TransportError::Closed);
         }
-        let mut pkt = Vec::with_capacity(frame.len() + 5);
-        pkt.extend_from_slice(&SYNC);
-        pkt.extend_from_slice(&(frame.len() as u16).to_le_bytes());
-        pkt.extend_from_slice(frame);
-        pkt.push(crc8(frame));
         let mut port = self.port.lock().await;
-        port.write_all(&pkt)?;
-        port.flush()?;
+        write_frame(&mut port, frame)?;
         Ok(())
     }
 

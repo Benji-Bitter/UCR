@@ -61,6 +61,15 @@ export interface NodeInfoDto {
   pubkey: string;
 }
 
+/** A serial port that might be a radio — is_modem means it answered the
+ *  UCRPING handshake, so it's a real UCR accessory, not a guess. */
+export interface DetectDto {
+  path: string;
+  label: string;
+  is_modem: boolean;
+  modem_info: string | null;
+}
+
 export interface ChannelDto {
   id: string;
   name: string;
@@ -144,6 +153,12 @@ export const api = {
       ? Promise.reject(new Error("real networking needs the desktop app"))
       : invoke<void>("real_start", o),
   realStop: () => (fb ? fb.simStop() : invoke<void>("real_stop")),
+  /** Hardware scan — browsers can't see USB serial, so the fallback
+   *  reports an empty bus. */
+  detectHardware: () =>
+    fb
+      ? Promise.resolve([] as DetectDto[])
+      : invoke<DetectDto[]>("detect_hardware"),
 
   nodeInfo: (idx: number) =>
     fb ? fb.nodeInfo(idx) : invoke<NodeInfoDto>("node_info", { idx }),
