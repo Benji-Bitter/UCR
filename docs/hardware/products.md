@@ -50,15 +50,27 @@ Guide: `first-node.md`. Buy the module for your ISM band.
 
 | Part | ~Price |
 |------|--------|
-| [Heltec WiFi LoRa 32 V3](https://heltec.org/project/wifi-lora-32-v3/) (ESP32-S3 + SX1262 + OLED + charger) | $18–25 |
+| [Heltec WiFi LoRa 32 **V3**](https://heltec.org/project/wifi-lora-32-v3/) (ESP32-S3 + SX1262 + OLED + charger) — flashes unmodified | $18–25 |
+| *or* [Heltec WiFi LoRa 32 **V4**](https://www.aliexpress.com/wholesale?SearchText=heltec+wifi+lora+32+v4) (ESP32-S3R2 + SX1262 + 0.96" OLED — newer, ~2× flash, lower power) | $20–28 |
+| *option:* [u-blox NEO-M8N GPS](https://www.u-blox.com/en/product/neo-m8-series) on the spare UART | +$10 |
 | [18650 cell](https://www.amazon.com/s?k=18650+battery+flat+top) | $5–8 |
 | [Band-matched SMA whip](https://www.amazon.com/s?k=915mhz+lora+antenna+sma) | $3–8 |
 | Lanyard / silicone sleeve | $3 |
 
-Default pin map already matches — flash it, add battery, done.
-**Software:** same `ucr-modem` firmware; the onboard OLED shows nothing
-today (display task is a listed contribution in `first-node.md`).
-Guide: `handheld.md` tier 1.
+**Two ways to buy it — with or without GPS:** bare board is the cheapest
+working UCR handheld (~$28 all-in); +$10 of NEO-M8N on UART1
+(`schematics.md` block A) turns it into a self-locating field unit — the
+`set_share_position` kill-switch still applies. Heltec also sells V4
+bundles with GPS pre-fitted — same result, less soldering.
+
+Default pin map already matches **V3** — flash it, add battery, done.
+**V4** routes the radio differently (and adds power-rail control GPIOs):
+grab Heltec's published V4 schematic, edit the seven-line pin block in
+`main.rs`, done — community `heltec_v4` pin maps exist to cross-check
+(`devices.md`).
+**Software:** same `ucr-modem` firmware; the 0.96" OLED gets a real
+interface when the display task lands — the full on-device UI spec is
+`device-ui.md`. Guide: `handheld.md` tier 1.
 
 ## 03 · The Scout — keychain node
 
@@ -118,7 +130,8 @@ radio, sized like one.
 
 - **Screen + keypad** — needs the on-device UI milestone (embedded node
   port). Today the T-Deck runs modem firmware and tethers to a phone over
-  USB-C; standalone UI is the flagship contribution.
+  USB-C; standalone UI is the flagship contribution — and its full spec,
+  every screen at real grid proportions, is `device-ui.md`.
 - **Digital lock** — implemented in `ucr-core` today: `Node::lock(pin)`/
   `unlock(pin)` gate every user-originated send (channel text, voice, DMs,
   groups, morse) while reception, relaying, and beacons continue — you

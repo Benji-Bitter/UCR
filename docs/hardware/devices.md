@@ -35,6 +35,7 @@ Same two chips, different GPIO routing. Change the pin block in `main()`
 | Board | What you get | ~Price | Notes |
 |-------|--------------|--------|-------|
 | LilyGo T-Beam Supreme (S3) | + u-blox GPS, AXP2101 PMU, 18650 holder | $30–38 | Field unit. GPS→`pos` glue is a known gap. See `handheld.md` tier 2. |
+| Heltec WiFi LoRa 32 V4 (ESP32-S3R2) | + 0.96" OLED onboard, ~2× the flash, low-power | $20–28 | V3's successor — sold with/without GPS. Community pin maps exist (the `heltec_v4` board definition); verify SCK/NSS/BUSY/DIO1 + VEXT/radio-switch GPIOs against Heltec's published V4 schematic before flashing — V4 added power-rail control pins V3 didn't have. |
 | LilyGo T-Deck | + 2.8" IPS, keyboard, trackball, mic, speaker | $50–60 | The standalone-radio body. See `handheld.md` tier 3. |
 | LilyGo T-Beam S3 (v1.x SX1262 builds) | + GPS, 18650 | $28–35 | Older sibling of the Supreme; several revisions exist — match your board's schematic. |
 | Seeed XIAO ESP32-S3 + Wio-SX1262 kit | tiny footprint | ~$18 | The expansion board is pre-wired; map Seeed's documented pin names onto our table. |

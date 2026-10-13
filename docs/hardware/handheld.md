@@ -118,7 +118,8 @@ desktop app sends today.
 - Codec2 encode/decode on-device — voice on the actual RF link.
 - NMEA → `NodeConfig.pos` glue in the modem — auto-locating nodes.
 - OLED/e-ink status task — channel activity, RSSI, battery on the V3's
-  screen.
+  screen. The complete UI spec — every screen at real grid proportions —
+  is `device-ui.md`; this is the task it feeds.
 - Board pin maps as data, not code — a `boards/` table so Heltec/T-Beam/
   T-Deck flash with one flag instead of editing `main.rs`.
 
