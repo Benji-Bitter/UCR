@@ -105,6 +105,8 @@ struct StatsDto {
     /// Digital lock state — sim nodes are never locked; real nodes report
     /// their actual PIN-lock state so the UI can gate its send affordances.
     locked: bool,
+    /// Whether the node's beacons announce its coarse position (GPS toggle).
+    share_pos: bool,
 }
 
 fn link_profile(mux: &MuxTransport) -> (usize, u32, String) {
@@ -329,6 +331,7 @@ fn sim_stats(state: State<'_, AppState>) -> Result<StatsDto, String> {
                 .map(|p| p.name.to_lowercase())
                 .unwrap_or_else(|| "sim".into()),
             locked: false,
+            share_pos: false,
         });
     }
     if let Some(real) = state.real.lock().as_ref() {
@@ -346,6 +349,7 @@ fn sim_stats(state: State<'_, AppState>) -> Result<StatsDto, String> {
             link_bitrate,
             link_name,
             locked: real.node.is_locked(),
+            share_pos: real.node.share_position(),
         });
     }
     Err("no node running".into())
@@ -819,6 +823,15 @@ fn clear_lock(state: State<'_, AppState>, idx: usize, pin: String) -> Result<boo
     with_node(&state, idx, |n| Ok(n.clear_lock(&pin)))?
 }
 
+/// GPS kill-switch — toggle coarse-position announce; the fix stays local.
+#[tauri::command]
+fn set_share_position(state: State<'_, AppState>, idx: usize, share: bool) -> Result<(), String> {
+    with_node(&state, idx, |n| {
+        n.set_share_position(share);
+        Ok(())
+    })?
+}
+
 // ---------------------------------------------------------------------------
 // Event bridge — real NodeEvents forwarded to the frontend
 // ---------------------------------------------------------------------------
@@ -932,6 +945,7 @@ pub fn run() {
             lock_node,
             unlock_node,
             clear_lock,
+            set_share_position,
             node_stats,
             subscribe_events,
         ])

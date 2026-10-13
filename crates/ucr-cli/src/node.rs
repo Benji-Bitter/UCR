@@ -71,6 +71,11 @@ struct Cli {
     /// Coarse position to announce.
     #[arg(long)]
     lon: Option<f64>,
+    /// Keep the GPS fix local — don't announce position in beacons.
+    /// The "GPS off" switch on a build that still wants the fix for
+    /// emergencies and its own UI.
+    #[arg(long)]
+    no_share_pos: bool,
     /// Persistent store directory (redb). Omit for an in-memory node.
     #[arg(long)]
     data_dir: Option<PathBuf>,
@@ -183,6 +188,7 @@ async fn main() {
         class,
         relay: !cli.no_relay,
         pos,
+        share_position: !cli.no_share_pos,
         ..Default::default()
     });
     if let Some(dir) = &cli.data_dir {
@@ -390,6 +396,20 @@ async fn handle(node: &Node, line: &str, current_channel: &mut ChannelId) -> boo
                 println!("unlocked");
             }
         }
+        "/gps" => match arg1 {
+            "on" => {
+                node.set_share_position(true);
+                println!("gps sharing on — position announced in beacons");
+            }
+            "off" => {
+                node.set_share_position(false);
+                println!("gps sharing off — fix kept locally, beacons carry no position");
+            }
+            _ => println!(
+                "gps sharing {}",
+                if node.share_position() { "on" } else { "off" }
+            ),
+        },
         "/stats" => println!("{:?}", node.stats()),
         _ => println!("unknown command {cmd} — /help"),
     }
@@ -419,7 +439,7 @@ fn parse_emergency<'a>(cat: &'a str, text: &'a str) -> (EmergencyCategory, &'a s
 
 fn print_help() {
     println!(
-        "commands:\n  <text>                   send to current channel\n  /dm <nodeid> <text>      encrypted DM\n  /morse <nodeid> <text>   digital morse\n  /emergency <cat> <text>  categories: medical fire flood accident vessel missing other\n  /join <name>             join a channel\n  /channel <name>          set default channel\n  /accept <nodeid>         accept contact request\n  /block <nodeid>\n  /lock <pin>              engage digital lock (tx gated; pin stored hashed)\n  /unlock <pin>            disengage lock\n  /lockstate               show lock state\n  /id /neighbors /routes /contacts /channels /groups /stats\n  /quit"
+        "commands:\n  <text>                   send to current channel\n  /dm <nodeid> <text>      encrypted DM\n  /morse <nodeid> <text>   digital morse\n  /emergency <cat> <text>  categories: medical fire flood accident vessel missing other\n  /join <name>             join a channel\n  /channel <name>          set default channel\n  /accept <nodeid>         accept contact request\n  /block <nodeid>\n  /lock <pin>              engage digital lock (tx gated; pin stored hashed)\n  /unlock <pin>            disengage lock\n  /lockstate               show lock state\n  /gps [on|off]            toggle position announce (fix kept locally when off)\n  /id /neighbors /routes /contacts /channels /groups /stats\n  /quit"
     );
 }
 

@@ -60,7 +60,9 @@ short texts, beacon position.
 | Tuned SMA whip | $8–12 |
 | Hammond / printed case | $5–10 |
 
-GPS feeds the coarse position your node announces (NMEA→`pos` glue is a
+GPS feeds the coarse position your node announces — with the kill-switch
+every GPS product shares: `set_share_position(false)` keeps the fix local,
+`/gps off` on the CLI, `[ gps off ]` in the app (NMEA→`pos` glue is a
 listed contribution). Guide: `handheld.md` tier 2.
 
 ## 05 · The Ranger — the full handheld radio
@@ -99,6 +101,9 @@ radio, sized like one.
   `/lock` `/unlock` `/lockstate`. The handheld UI maps the same calls to
   the 4×4 membrane pad.
 - **GPS** — announces coarse position; precise fix never leaves the box.
+  Ships with the toggle: `set_share_position` gates the beacon announce,
+  persists in the store, keeps the fix when off — the keypad's GPS-off
+  key maps straight to it.
 - **Voice** — the I2S chain is where Codec2 lands on-device (the only
   voice codec that fits 1.75kbit/s LoRa).
 
@@ -121,7 +126,7 @@ Better antenna = the entire upgrade.
 | ESP32-S3 + SX1262 board | $20 |
 | Mag-mount whip (roof) + coax | $15–25 |
 | 12 V→5 V buck converter | $5 |
-| u-blox GPS module | $10–15 |
+| u-blox GPS module + toggle on the dash | $10–15 |
 | Dash or trunk enclosure | $5 |
 
 Car-powered, roof antenna, GPS-positioned: the best mobile node money
@@ -211,7 +216,8 @@ radio that survives being dropped, drenched, and borrowed.
   lock (PIN pad is right there), morse, emergency bypass, groups, DMs,
   voice gating — all `ucr-core`, all already tested.
 - **GPS built in** on the T-Deck Plus — coarse position announces with
-  zero extra parts.
+  zero extra parts, and the same `set_share_position` kill-switch as
+  every GPS product: announce off, fix retained.
 - **Codec2-ready** — the I2S chain + ESP32-S3 DSP headroom is exactly
   where LoRa-band voice lands.
 - **Open end to end** — the BOM is commodity parts, the case is
@@ -230,9 +236,9 @@ height, free power, flat-water propagation, and a real reason for mesh.
 
 | build | ~cost | what it is |
 |-------|-------|------------|
-| deckhand | $45 | IP67 crew handheld — one per crew, floats in a dry box |
-| skipper | $100 | helm install: 12V house power, rail antenna, always-on Pi node |
-| admiral | $200 | flagship vessel: arch collinear, mast run, `--class relay` boat |
+| deckhand | $55 | IP67 crew handheld with GPS — one per crew, floats in a dry box |
+| skipper | $110 | helm install: GPS, 12V house power, rail antenna, always-on Pi node |
+| admiral | $210 | flagship vessel: dual GPS, arch collinear, mast run, `--class relay` boat |
 
 Full shopping lists, NMEA notes, and marine rules: `marine.md`.
 

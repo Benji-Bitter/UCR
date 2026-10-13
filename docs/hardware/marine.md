@@ -36,14 +36,17 @@ boat is over the horizon, mesh through the harbor). Carry both.
 
 ---
 
-## Tier 1 · The Deckhand — ~$45 — the crew handheld
+## Tier 1 · The Deckhand — ~$55 — the crew handheld
 
-A Pocket Node in a dry box. One per crew member — comms deck-to-deck,
-boat-to-tender, "dinner's ready" to the anchorage.
+A Pocket Node in a dry box, with GPS — one per crew member. Comms
+deck-to-deck, boat-to-tender, "dinner's ready" to the anchorage, and a
+coarse position on every beacon so the mother boat sees where the tender
+actually went.
 
 | Part | ~Price | Why |
 |------|--------|-----|
 | Heltec LoRa 32 V3 (your ISM band) | $20 | board + radio + OLED + charger, zero soldering |
+| u-blox NEO-M8N GPS module | $10 | position — wires to the board's spare UART |
 | Short SMA whip, tuned | $10 | range |
 | u.fl→SMA pigtail | $3 | antenna feed |
 | IP67 polycarbonate box (~120×70×30mm) | $8 | salt water is the enemy |
@@ -57,7 +60,7 @@ is a leak.
 hail-the-harbor without touching VHF. Float it with a foam insert and it
 survives the dinghy drop.
 
-## Tier 2 · The Skipper — ~$100 — the helm station
+## Tier 2 · The Skipper — ~$110 — the helm station
 
 A permanent nav-station install: the boat's own UCR node, powered off the
 house bank, feeding the rail antenna, meshing with every boat in the bay
@@ -67,6 +70,7 @@ while you sleep.
 |------|--------|-----|
 | ESP32-S3-DevKit + Wio-SX1262 (or Heltec V3) | $25 | the modem |
 | Pi Zero 2 W (+ SD) | $20 | always-on host — `ucr-node` runs the mesh |
+| u-blox NEO-M8N GPS module | $10 | position — dedicated fix, or feed NMEA from the plotter below |
 | Fused 12V→5V buck converter | $8 | clean power off the house bank |
 | IP65 junction box, nav-station size | $15 | behind the panel |
 | Rail/arch antenna bracket + tuned whip | $15 | stern rail or solar arch mount |
@@ -78,12 +82,13 @@ the stern rail or arch. `ucr-node --callsign VESSEL-NAME --class base` on
 the Pi, serial to the modem — it boots with the boat and meshes the
 anchorage as infrastructure, quietly relaying everyone's traffic.
 
-**Optional NMEA feed:** your chartplotter already outputs position on
-NMEA 0183 ($5 USB-RS422 dongle). The GPS→`ucr-node --lat/--lon` glue is
-a friendly first contribution — today you set the coarse position once
-per passage.
+**GPS:** the dedicated NEO-M8N is the independent fix; if the nav station
+already has a chartplotter, its NMEA 0183 output ($5 USB-RS422 dongle)
+works instead — one wire, no second antenna. The GPS→`ucr-node --lat/--lon`
+glue is a friendly first contribution either way; today you set the
+coarse position once per passage.
 
-## Tier 3 · The Admiral — ~$200 — the flagship vessel install
+## Tier 3 · The Admiral — ~$210 — the flagship vessel install
 
 A floating Godfather: mastheight antenna, house-bank power, always on,
 the harbor's relay. Every boat that joins the mesh gets routed through
@@ -98,7 +103,8 @@ envelopes.
 | LMR-200 coax (10m) + glands | $25 | low-loss mast run |
 | IP65 enclosure + sealed panel | $20 | the electronics bay |
 | Fused buck + inline fuse + master switch | $12 | proper marine DC |
-| NMEA 0183 USB bridge (RS422↔USB) | $8 | plotter position → coarse pos |
+| NMEA 0183 USB bridge (RS422↔USB) | $8 | the GPS feed — plotter position → coarse pos |
+| u-blox NEO-M10N (backup fix) | $10 | independent GPS when the plotter's off |
 | Dielectric grease, conformal coat, tinned wire | $15 | it lives in salt air |
 
 **Build:** same Don/Godfather config, vessel-grade materials.
@@ -114,12 +120,23 @@ everyone's messages route.
 - **Shore link** — a Godfather on a coastal hill + the Admiral bridges
   harbor traffic onto the land mesh.
 
+## The GPS toggle — every marine build gets it
+
+Every GPS build above carries a kill-switch for position announce, and
+it's real code: `ucr-node --no-share-pos` boots silent, `/gps off` flips
+it live, the app has a `[ gps ]`/`[ gps off ]` header toggle — all wired
+to `Node::set_share_position`. Off never loses the fix — the beacon just
+stops carrying it. At anchor in a quiet bay you go position-silent and
+keep receiving; underway you flip it on and the flotilla sees you. On a
+hardware unit the same call maps to a latching toggle on the box — a
+switch that reads "you are not broadcasting where you're anchored."
+
 ## Marine rules
 
 1. **VHF still rules.** UCR supplements Ch.16, never substitutes.
 2. **Coarse position only.** A boat's anchorage is its bedroom — the
    protocol announces city-level position by design; never wire a precise
-   fix into beacons.
+   fix into beacons, and keep the GPS toggle within reach.
 3. **Antenna before transmit, always.** Salt-air connectors corrode —
    check SWR/contact before blaming the code.
 4. **Your ISM band, your rules.** 915MHz in AU/US, 868MHz in EU — buy the

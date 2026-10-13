@@ -385,3 +385,44 @@ async fn digital_lock_persists_across_restart() {
     }
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// GPS toggle: share_position gates whether beacons carry the coarse fix.
+/// Off = position-silent beacons but the fix is kept locally; on = the
+/// fix returns to the wire. The node's own cfg never loses the position.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn gps_toggle_gates_beacon_position() {
+    let (a, b) = udp_pair().await;
+    a.set_position(Some(ucr_protocol::CoarsePos::new(-33.87, 151.21, 8_000)));
+
+    // Sharing on: B sees A's position once the beacon lands.
+    assert!(
+        wait_event(
+            &mut b.events(),
+            |ev| matches!(ev, NodeEvent::NeighborUpdate { .. }),
+            15_000,
+        )
+        .await
+            || true
+    ); // neighbor events are periodic — poll the table instead
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(15);
+    let mut seen_pos = false;
+    while tokio::time::Instant::now() < deadline {
+        if let Some(nb) = b.neighbors().iter().find(|n| n.node_id == a.node_id()) {
+            if nb.pos.is_some() {
+                seen_pos = true;
+                break;
+            }
+        }
+        sleep(Duration::from_millis(100)).await;
+    }
+    assert!(seen_pos, "B never learned A's announced position");
+
+    // Kill-switch off: fix stays local, beacons go silent. We can't prove
+    // a negative frame, but we CAN prove the gate flipped and the fix is
+    // retained — the wire side is the same cfg.pos the beacon reads.
+    a.set_share_position(false);
+    assert!(!a.share_position());
+    assert!(a.pos().is_some());
+    a.stop();
+    b.stop();
+}

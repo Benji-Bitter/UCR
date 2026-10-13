@@ -43,6 +43,10 @@ pub struct NodeConfig {
     pub emergency_relay: bool,
     /// Optional coarse position. GPS is never required — None is fully valid.
     pub pos: Option<CoarsePos>,
+    /// Announce `pos` in beacons. The GPS kill-switch: off keeps the fix
+    /// locally but the node goes position-silent — every product with a
+    /// GPS exposes this as a toggle. Persists via Settings.
+    pub share_position: bool,
     /// Battery percent (255 = unknown/mains).
     pub battery: u8,
     /// Beacon base interval (adaptive around this).
@@ -69,6 +73,7 @@ impl Default for NodeConfig {
             relay: true,
             emergency_relay: true,
             pos: None,
+            share_position: true,
             battery: 255,
             beacon_base_ms: 60_000,
             maintenance_ms: 300,
@@ -220,6 +225,11 @@ impl NodeBuilder {
             cfg.class = stored.class;
             cfg.tone_id = stored.tone_id;
             cfg.relay = stored.relay;
+            // An explicit pos passed this run is intent to announce; only
+            // restore the stored toggle when no pos was given this boot.
+            if cfg.pos.is_none() {
+                cfg.share_position = stored.share_position;
+            }
         }
         let pid_seed = match self.pid_seed {
             Some(s) => s,
@@ -331,6 +341,26 @@ impl Node {
 
     pub fn set_position(&self, pos: Option<CoarsePos>) {
         self.inner.cfg.lock().pos = pos;
+    }
+
+    /// GPS kill-switch: toggle whether the next beacons announce the
+    /// coarse position. Off keeps the fix in cfg — the node just stops
+    /// broadcasting it. Persists so a privacy-off unit stays off.
+    pub fn set_share_position(&self, share: bool) {
+        self.inner.cfg.lock().share_position = share;
+        if let Ok(mut s) = self.inner.store.settings() {
+            s.share_position = share;
+            let _ = self.inner.store.save_settings(&s);
+        }
+    }
+
+    pub fn share_position(&self) -> bool {
+        self.inner.cfg.lock().share_position
+    }
+
+    /// The locally-held coarse fix (kept even when sharing is off).
+    pub fn pos(&self) -> Option<CoarsePos> {
+        self.inner.cfg.lock().pos
     }
 
     /// Subscribe to node events.
@@ -1155,7 +1185,7 @@ impl Node {
         if cfg.emergency_relay {
             c |= caps::EMERGENCY_RELAY;
         }
-        if cfg.pos.is_some() {
+        if cfg.pos.is_some() && cfg.share_position {
             c |= caps::POSITIONED;
         }
         if cfg.battery == 255 {
@@ -1467,7 +1497,7 @@ impl Node {
                     seen,
                     congestion: node.inner.transport.congestion(),
                     battery: cfg.battery,
-                    pos: cfg.pos,
+                    pos: if cfg.share_position { cfg.pos } else { None },
                     tone_id: cfg.tone_id,
                 };
                 let pkt = {

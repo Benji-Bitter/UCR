@@ -105,9 +105,9 @@ per-part shopping lists is **[docs/hardware/products.md](docs/hardware/products.
 | **the godfather handheld** | $180–260 | the best handheld — dual-watch, every feature, no-compromise parts |
 | **the base station** | $40 | set-and-forget home node — LAN↔RF bridge |
 | **the vehicle node** | $45 | 12 V, mag-mount roof whip, GPS — the mobile unit |
-| **the deckhand** | $45 | IP67 crew handheld for the boat → [marine.md](docs/hardware/marine.md) |
-| **the skipper** | $100 | helm-station install, house power + rail antenna → [marine.md](docs/hardware/marine.md) |
-| **the admiral** | $200 | flagship vessel — floating Godfather relay → [marine.md](docs/hardware/marine.md) |
+| **the deckhand** | $55 | IP67 crew handheld with GPS → [marine.md](docs/hardware/marine.md) |
+| **the skipper** | $110 | helm install: GPS + house power + rail antenna → [marine.md](docs/hardware/marine.md) |
+| **the admiral** | $210 | flagship vessel — floating Godfather relay → [marine.md](docs/hardware/marine.md) |
 | **the don** | $45 | attic always-on relay → [godfather.md](docs/hardware/godfather.md) |
 | **the godfather** | $120–150 | mast-mounted community relay + gateway → [godfather.md](docs/hardware/godfather.md) |
 | **the watchtower** | $18 | receive-only listening post — legal everywhere, hears everything |

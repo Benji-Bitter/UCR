@@ -32,6 +32,7 @@ export default function App() {
   const [me, setMe] = useState(0);
   // Digital lock — PIN-gated TX, mirrored from the node via stats/events.
   const [locked, setLocked] = useState(false);
+  const [sharePos, setSharePos] = useState(true);
   const [lockUi, setLockUi] = useState(false);
   const [pinInput, setPinInput] = useState("");
   const [lockErr, setLockErr] = useState("");
@@ -69,8 +70,11 @@ export default function App() {
         if (!live) return;
         setTopo(t);
         setStats(s);
-        // The backend's lock bit is "self" — in sim that's node 0 only.
-        if (modeRef.current === "real" || meRef.current === 0) setLocked(s.locked);
+        // The backend's lock/gps bits are "self" — in sim that's node 0 only.
+        if (modeRef.current === "real" || meRef.current === 0) {
+          setLocked(s.locked);
+          setSharePos(s.share_pos);
+        }
         // Refresh node infos — real-mode topo includes remote peers, which
         // aren't local nodes; fall back to their announced callsign/id.
         const inf = await Promise.all(
@@ -280,6 +284,24 @@ export default function App() {
                 )}
               </span>
             )}
+            <button
+              onClick={() => {
+                void api
+                  .setSharePosition(me, !sharePos)
+                  .then(() => setSharePos(!sharePos))
+                  .catch(() => {});
+              }}
+              title={
+                sharePos
+                  ? "gps announce on — beacons carry your coarse position"
+                  : "gps announce off — fix kept locally, position-silent"
+              }
+              className={`border border-line px-2 py-1 uppercase tracking-wider ${
+                sharePos ? "bg-panel hover:bg-fg hover:text-ink" : "text-dim bg-panel hover:bg-fg hover:text-ink"
+              }`}
+            >
+              {sharePos ? "[ gps ]" : "[ gps off ]"}
+            </button>
             <button
               onClick={() => {
                 setLockUi((v) => !v);

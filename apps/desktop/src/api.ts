@@ -55,6 +55,8 @@ export interface StatsDto {
   link_name: string;
   /** Digital lock — true when the node refuses user-originated sends. */
   locked: boolean;
+  /** GPS toggle — true when beacons announce the coarse position. */
+  share_pos: boolean;
 }
 
 export interface NodeInfoDto {
@@ -221,6 +223,8 @@ export const api = {
     fb ? fb.unlockNode(idx, pin) : invoke<boolean>("unlock_node", { idx, pin }),
   clearLock: (idx: number, pin: string) =>
     fb ? fb.clearLock(idx, pin) : invoke<boolean>("clear_lock", { idx, pin }),
+  setSharePosition: (idx: number, share: boolean) =>
+    fb ? fb.setSharePosition(idx, share) : invoke<void>("set_share_position", { idx, share }),
   subscribeEvents: () => (fb ? fb.subscribeEvents() : invoke<void>("subscribe_events")),
 };
 

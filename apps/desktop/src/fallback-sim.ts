@@ -101,6 +101,7 @@ export class FallbackSim {
     enabled: boolean;
     locked: boolean;
     pin: string | null;
+    sharePos: boolean;
     channels: Set<string>;
     contacts: Map<string, Contact>;
     rxCount: Map<number, number>;
@@ -122,6 +123,7 @@ export class FallbackSim {
     link_bitrate: 5500,
     link_name: "simulator",
     locked: false,
+    share_pos: true,
   };
   private msgSeq = 1;
   private pktSeq = 1;
@@ -144,6 +146,7 @@ export class FallbackSim {
       enabled: true,
       locked: false,
       pin: null,
+      sharePos: true,
       channels: new Set(DEFAULT_CHANNELS.map(([name]) => name)),
       contacts: new Map(),
       rxCount: new Map(),
@@ -183,6 +186,7 @@ export class FallbackSim {
       medium_dropped_collision: 0, medium_dropped_halfduplex: 0,
       medium_dropped_blocked: 0, airtime_ms: 0,
       link_mtu: 400, link_bitrate: 5500, link_name: "simulator", locked: false,
+      share_pos: true,
     };
     return Promise.resolve();
   }
@@ -246,8 +250,12 @@ export class FallbackSim {
   }
 
   simStats(): Promise<StatsDto> {
-    // The displayed lock badge tracks node 0 — the sim's "self" node.
-    return Promise.resolve({ ...this.stats, locked: this.nodes[0]?.locked ?? false });
+    // The displayed lock/gps bits track node 0 — the sim's "self" node.
+    return Promise.resolve({
+      ...this.stats,
+      locked: this.nodes[0]?.locked ?? false,
+      share_pos: this.nodes[0]?.sharePos ?? true,
+    });
   }
 
   // ---- node queries ------------------------------------------------------
@@ -390,6 +398,13 @@ export class FallbackSim {
       this.emit(idx, { LockChanged: { locked: false } });
     }
     return Promise.resolve(ok);
+  }
+
+  /** GPS toggle — mirror of set_share_position on the real node. */
+  setSharePosition(idx: number, share: boolean): Promise<void> {
+    const n = this.nodes[idx];
+    if (n) n.sharePos = share;
+    return Promise.resolve();
   }
 
   private txGate(idx: number): Promise<void> | null {

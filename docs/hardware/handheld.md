@@ -59,7 +59,10 @@ existing issues before reinventing.
 `lat/lon` your node announces (city-level on the globe, never exact).
 Wiring NMEA parsing into the modem firmware is a real known gap — today
 you set the position manually in the app, and wiring `gps → NodeConfig.pos`
-is one of the friendliest first contributions.
+is one of the friendliest first contributions. Whatever feeds it, the
+announce carries a kill-switch: `Node::set_share_position(false)` keeps
+the fix local and stops it reaching beacons — `/gps off` on the CLI,
+`[ gps off ]` in the app, a latching toggle on the handheld.
 
 ## Tier 3 — Advanced: "the standalone radio" (~$80–120)
 
