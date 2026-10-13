@@ -185,6 +185,57 @@ Two radios on one desk lets you close the loop yourself: real frames, real
 RSSI, real airtime — no second location needed. This is how firmware PRs
 get made.
 
+## 13 · The Godfather Handheld — the best one
+
+Not a relay — a *user radio*, flagship of the line. If the Ranger is the
+handheld, this is the handheld you hand to the person who asked for the
+best: every feature in the catalog, no compromise parts, built to be the
+radio that survives being dropped, drenched, and borrowed.
+
+| Part | ~Price | Why |
+|------|--------|-----|
+| LilyGo T-Deck Plus | $75 | ESP32-S3 + SX1262 + screen + keyboard + **u-blox GPS onboard** + speaker + mic + battery holder — the most integrated base that exists |
+| *or full DIY stack:* ESP32-S3 + SX1262 + 3.2" ILI9341 + mech-feel keypad + INMP441 + MAX98357A + NEO-M10 | $90 | bigger screen, better audio chain, your pick of case |
+| Tuned SMA whip + proper u.fl→SMA pigtail | $15 | best RF front end a handheld gets — the tuned antenna is worth more range than any other $15 |
+| 2× 18650 (or 21700) + battery sled | $10 | all-weekend runtime, field-swappable cells |
+| Machined or PETG-CF clamshell + gasket | $20–30 | the enclosure is what makes it *feel* like the best |
+| Second SX1262 module (dual-watch) | $12 | monitor `ucr-marine` while camping on `ucr.public` — real radios do this |
+| USB-C cable + lanyard + screen protector | $10 | the bits that make it daily-carry |
+
+**~$180–260 all in. What "best" means here, honestly:**
+
+- **Dual-watch** — second SX1262 scanning a second channel; the mux
+  transport already fans packets across links, so the firmware path is
+  real, not fantasy.
+- **Every software feature ships today on this hardware class** — digital
+  lock (PIN pad is right there), morse, emergency bypass, groups, DMs,
+  voice gating — all `ucr-core`, all already tested.
+- **GPS built in** on the T-Deck Plus — coarse position announces with
+  zero extra parts.
+- **Codec2-ready** — the I2S chain + ESP32-S3 DSP headroom is exactly
+  where LoRa-band voice lands.
+- **Open end to end** — the BOM is commodity parts, the case is
+  printable, the firmware is this repo. "Best on the market" *and* the
+  only one you can build, fix, and fork.
+- **The honest gap is the same as every handheld** — it wants the
+  `ucr-core`-on-ESP32 port to stop tethering. Until then it's the best
+  UCR *handset*, host-brain included via USB-C.
+
+## 14 · Marine lineup — UCR on the water
+
+Three vessel builds — the crew handheld, the helm station, and a floating
+Godfather relay. Boats are the best UCR platform that exists: free mast
+height, free power, flat-water propagation, and a real reason for mesh.
+**Not a VHF replacement** — your crew layer alongside Ch.16.
+
+| build | ~cost | what it is |
+|-------|-------|------------|
+| deckhand | $45 | IP67 crew handheld — one per crew, floats in a dry box |
+| skipper | $100 | helm install: 12V house power, rail antenna, always-on Pi node |
+| admiral | $200 | flagship vessel: arch collinear, mast run, `--class relay` boat |
+
+Full shopping lists, NMEA notes, and marine rules: `marine.md`.
+
 ---
 
 ## Software each product needs
@@ -192,8 +243,8 @@ get made.
 | product | runs today | needs (roadmap) |
 |---------|-----------|-----------------|
 | first node, scout, watchtower | tethered modem ✓ | — |
-| pocket, field, vehicle, base, don, godfather, go-box | tethered modem + host app ✓ | GPS→pos glue (GPS units) |
-| ranger | tethered modem ✓ (digital lock ships in ucr-core) | embedded node port, on-device UI, Codec2 |
+| pocket, field, vehicle, base, don, godfather, go-box, deckhand, skipper, admiral | tethered modem + host app ✓ | GPS→pos glue (GPS units) |
+| ranger, godfather handheld | tethered modem ✓ (digital lock ships in ucr-core) | embedded node port, on-device UI, Codec2 |
 
 `ucr-core` on ESP32 is the single unlock that turns the Ranger into a
 phone-free radio. It's the project's highest-value contribution; the

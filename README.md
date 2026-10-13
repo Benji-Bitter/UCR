@@ -92,7 +92,7 @@ for the real xtensa target. See [ROADMAP.md](ROADMAP.md).
 
 ## The builds
 
-Twelve products, one firmware, one wire protocol. The full catalog with
+Sixteen products, one firmware, one wire protocol. The full catalog with
 per-part shopping lists is **[docs/hardware/products.md](docs/hardware/products.md)**.
 
 | product | ~cost | what it is |
@@ -101,9 +101,13 @@ per-part shopping lists is **[docs/hardware/products.md](docs/hardware/products.
 | **the pocket node** | $20 | Heltec V3 + battery + whip — zero-solder handheld |
 | **the scout** | $18 | XIAO ESP32-S3 + Wio-SX1262 — keychain-sized node |
 | **the field node** | $50 | T-Beam Supreme — own battery, own GPS, cased |
-| **the ranger** | $80–120 | the flagship handheld: screen, keypad, keypad-lock, GPS, mic, speaker, real PTT |
+| **the ranger** | $80–120 | the flagship handheld: screen, keypad, digital lock, GPS, mic, speaker, real PTT |
+| **the godfather handheld** | $180–260 | the best handheld — dual-watch, every feature, no-compromise parts |
 | **the base station** | $40 | set-and-forget home node — LAN↔RF bridge |
 | **the vehicle node** | $45 | 12 V, mag-mount roof whip, GPS — the mobile unit |
+| **the deckhand** | $45 | IP67 crew handheld for the boat → [marine.md](docs/hardware/marine.md) |
+| **the skipper** | $100 | helm-station install, house power + rail antenna → [marine.md](docs/hardware/marine.md) |
+| **the admiral** | $200 | flagship vessel — floating Godfather relay → [marine.md](docs/hardware/marine.md) |
 | **the don** | $45 | attic always-on relay → [godfather.md](docs/hardware/godfather.md) |
 | **the godfather** | $120–150 | mast-mounted community relay + gateway → [godfather.md](docs/hardware/godfather.md) |
 | **the watchtower** | $18 | receive-only listening post — legal everywhere, hears everything |
@@ -303,6 +307,7 @@ docs/           protocol, architecture, security, hardware, development
 - [docs/hardware/first-node.md](docs/hardware/first-node.md): build your first node
 - [docs/hardware/handheld.md](docs/hardware/handheld.md): three handheld tiers
 - [docs/hardware/godfather.md](docs/hardware/godfather.md): the always-on relay
+- [docs/hardware/marine.md](docs/hardware/marine.md): marine builds — crew handheld → floating relay
 - [docs/hardware/devices.md](docs/hardware/devices.md): supported-boards catalog
 - [docs/hardware/reference.md](docs/hardware/reference.md): firmware plan + HAL porting guide
 - [docs/protocol/serial.md](docs/protocol/serial.md): host-to-modem serial protocol
