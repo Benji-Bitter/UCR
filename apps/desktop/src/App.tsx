@@ -549,11 +549,11 @@ export function EmptyState() {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-2 text-dim">
       <pre className="text-fg leading-tight">
-{String.raw`██    ██  ██████  ██████
-██    ██ ██       ██   ██
-██    ██ ██       ██████
-██    ██ ██       ██   ██
- ██████   ██████  ██   ██`}
+{String.raw`██    ██   ██████   ██████
+██    ██  ██        ██   ██
+██    ██  ██        ██████
+██    ██  ██        ██ ██
+ ██████    ██████   ██  ██`}
       </pre>
       <div>// [ go online ] puts a real node on lan / tcp / serial — actual ucr packets on the wire</div>
       <div className="mt-2 text-xs">[ run sim ] spins up the deterministic rf test world instead</div>
