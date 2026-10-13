@@ -144,8 +144,15 @@ struct DetectDto {
 
 /// Enumerate USB serial devices and probe each for the UCR modem
 /// handshake. Runs on a plain thread (serialport is sync) — fine here.
+/// Android returns an empty list: OTG serial is not wired up yet, so the
+/// phone reaches the mesh over UDP/TCP instead.
 #[tauri::command]
 fn detect_hardware() -> Vec<DetectDto> {
+    #[cfg(target_os = "android")]
+    {
+        return Vec::new();
+    }
+    #[cfg(not(target_os = "android"))]
     ucr_transport::detect::detect_serial_devices(115_200, std::time::Duration::from_millis(700))
         .into_iter()
         .map(|d| DetectDto {
@@ -436,6 +443,9 @@ fn real_start(
     }
 
     // Serial modem — an attached SX1262-style radio accessory.
+    // Desktop only for now; on Android the serial_path arg is ignored and
+    // the node reaches the mesh via LAN UDP + TCP links.
+    #[cfg(not(target_os = "android"))]
     if let Some(path) = serial_path.as_deref().filter(|p| !p.trim().is_empty()) {
         let t = ucr_transport::serial::SerialTransport::open(
             path,
@@ -448,6 +458,8 @@ fn real_start(
             mux.add(Arc::new(t));
         });
     }
+    #[cfg(target_os = "android")]
+    let _ = (serial_path, serial_baud);
 
     let pos = lat.zip(lon).map(|(la, lo)| CoarsePos::new(la, lo, 8_000));
 
@@ -900,6 +912,7 @@ fn parse_group(s: &str) -> Result<GroupId, String> {
     Ok(GroupId(out))
 }
 
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let rt = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(4)

@@ -42,6 +42,7 @@ group communication, and emergency preparedness.
 | build my first node (~$15) | [first-node.md](docs/hardware/first-node.md) |
 | wire any product up | [schematics.md](docs/hardware/schematics.md) — every product's pinout |
 | see the device screens | [device-ui.md](docs/hardware/device-ui.md) — the on-device UI spec |
+| put it on my phone | [android.md](docs/android.md) — the APK for screenless radios |
 | pick a handheld to carry | [handheld.md](docs/hardware/handheld.md) — 3 tiers |
 | put one on my boat | [marine.md](docs/hardware/marine.md) — 3 tiers |
 | run an always-on relay | [godfather.md](docs/hardware/godfather.md) |
@@ -329,6 +330,7 @@ docs/           protocol, architecture, security, hardware, development
 - [docs/hardware/marine.md](docs/hardware/marine.md): marine builds — crew handheld → floating relay
 - [docs/hardware/schematics.md](docs/hardware/schematics.md): core schematic + breakout library + per-product wiring
 - [docs/hardware/device-ui.md](docs/hardware/device-ui.md): the on-device UI spec — OLED + TFT layouts
+- [docs/android.md](docs/android.md): the Android app — phone as the screen for screenless radios
 - [docs/hardware/devices.md](docs/hardware/devices.md): supported-boards catalog
 - [docs/hardware/reference.md](docs/hardware/reference.md): firmware plan + HAL porting guide
 - [docs/protocol/serial.md](docs/protocol/serial.md): host-to-modem serial protocol

@@ -23,10 +23,10 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-#[cfg(feature = "serial")]
+#[cfg(all(feature = "serial", not(target_os = "android")))]
 pub mod detect;
 pub mod mux;
-#[cfg(feature = "serial")]
+#[cfg(all(feature = "serial", not(target_os = "android")))]
 pub mod serial;
 pub mod tcp;
 pub mod udp;

@@ -11,7 +11,7 @@ dist-ssr/
 .pnpm-store/
 
 # Tauri
-apps/desktop/src-tauri/gen/
+apps/desktop/src-tauri/gen/schemas/
 apps/desktop/src-tauri/target/
 
 # OS
@@ -40,3 +40,6 @@ firmware/**/managed_components/
 
 # Simulator output
 sim-out/
+
+# Local device-screen simulator (toy, not shipped)
+dev/
