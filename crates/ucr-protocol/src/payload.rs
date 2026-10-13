@@ -112,6 +112,9 @@ pub enum AppData {
     /// receivers can display channels they have not seen before without a
     /// directory lookup.
     ChannelText(ChannelText),
+    /// Signed, unencrypted channel voice frames — push-to-talk audio.
+    /// Voice is real-time traffic: loss is skipped, never replayed.
+    ChannelVoice(ChannelVoice),
     /// Cleartext application traffic (profile info, digital Morse, tone
     /// announcements). Signed at packet level; not confidential.
     Plain(PlainApp),
@@ -134,6 +137,38 @@ pub struct ChannelText {
     pub scope: Scope,
     pub msg_id: MsgId,
     pub text: String,
+}
+
+/// A channel voice frame — one slice of a push-to-talk transmission.
+///
+/// `codec` names the encoding (see `voice_codecs`); receivers that don't
+/// know the codec simply skip the frame. `tx_id` groups frames belonging
+/// to one transmission, `seq` orders them, `last` marks the tail.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ChannelVoice {
+    pub channel: ChannelId,
+    /// Last-seen channel name (same role as `ChannelText::name`).
+    pub name: String,
+    /// Sender-declared scope copied from the channel config.
+    pub scope: Scope,
+    /// Codec id from `voice_codecs` — 1 = IMA-ADPCM 8kHz mono.
+    pub codec: u8,
+    /// Transmission id — increments per push-to-talk press.
+    pub tx_id: u16,
+    /// Frame sequence within this transmission.
+    pub seq: u16,
+    /// True on the final frame of the transmission.
+    pub last: bool,
+    /// Encoded audio bytes.
+    pub data: Vec<u8>,
+}
+
+/// Voice codec registry. New codecs get new ids; unknown ids are skippable.
+pub mod voice_codecs {
+    /// IMA-ADPCM, 8kHz mono, 4-bit samples (≈32 kbit/s).
+    pub const ADPCM_8K: u8 = 1;
+    /// Codec2 1200 for real narrowband RF (encoder lives in firmware/modem).
+    pub const CODEC2_1200: u8 = 2;
 }
 
 /// Cleartext application payloads.

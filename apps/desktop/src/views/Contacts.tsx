@@ -29,7 +29,7 @@ export default function Contacts({
   const label = (hex: string) => infos.find((i) => i.node_id === hex)?.callsign ?? hex.slice(0, 8);
 
   return (
-    <div className="grid h-full grid-cols-3 gap-4 overflow-auto">
+    <div className="grid h-full grid-cols-1 gap-4 overflow-auto sm:grid-cols-2 xl:grid-cols-3">
       <section className="rounded border border-line bg-panel p-3">
         <div className="mb-2 text-dim">neighbours ({neighbors.length})</div>
         {neighbors.map((n) => (

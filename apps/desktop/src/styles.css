@@ -28,6 +28,12 @@ body {
   letter-spacing: 0.01em;
 }
 
+/* no horizontal scrollbars, ever — layouts wrap instead of swiping */
+html,
+body {
+  overflow-x: hidden;
+}
+
 /* Terminal aesthetic — everything square. */
 *,
 *::before,

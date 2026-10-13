@@ -164,6 +164,18 @@ export const api = {
     fb ? fb.joinChannel(idx, name) : invoke<string>("join_channel", { idx, name }),
   sendChannelText: (idx: number, channel: string, text: string) =>
     fb ? fb.sendChannelText(idx, channel, text) : invoke<number>("send_channel_text", { idx, channel, text }),
+  sendVoice: (
+    idx: number,
+    channel: string,
+    codec: number,
+    txId: number,
+    seq: number,
+    last: boolean,
+    data: number[],
+  ) =>
+    fb
+      ? fb.sendVoice(idx, channel, codec, txId, seq, last, data)
+      : invoke<number>("send_voice", { idx, channel, codec, txId, seq, last, data }),
   sendDm: (idx: number, peer: string, text: string) =>
     fb ? fb.sendDm(idx, peer, text) : invoke<number>("send_dm", { idx, peer, text }),
   sendMorse: (idx: number, peer: string, text: string, wpm: number) =>

@@ -621,6 +621,25 @@ fn send_dm(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)] // tauri commands take flat arg lists
+fn send_voice(
+    state: State<'_, AppState>,
+    idx: usize,
+    channel: String,
+    codec: u8,
+    tx_id: u16,
+    seq: u16,
+    last: bool,
+    data: Vec<u8>,
+) -> Result<u64, String> {
+    let cid = ChannelId::from_name(&channel);
+    with_node(&state, idx, |n| {
+        n.send_channel_voice(&cid, codec, tx_id, seq, last, &data)
+            .map_err(short_err)
+    })?
+}
+
+#[tauri::command]
 fn send_morse(
     state: State<'_, AppState>,
     idx: usize,
@@ -821,6 +840,7 @@ pub fn run() {
             node_channel_history,
             join_channel,
             send_channel_text,
+            send_voice,
             send_dm,
             send_morse,
             send_emergency,

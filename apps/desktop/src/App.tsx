@@ -150,7 +150,7 @@ export default function App() {
   return (
     <div className="flex h-full flex-col bg-ink text-fg">
       {/* top bar */}
-      <header className="flex items-center gap-3 border-b border-line px-4 py-2">
+      <header className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-2">
         <div className="flex items-center gap-2">
           <span className="text-base font-bold tracking-widest">UCR://</span>
           <span className="text-dim">universal citizens radio</span>
@@ -275,7 +275,7 @@ export default function App() {
           </form>
         ) : (
           <form
-            className="flex items-center gap-2"
+            className="flex flex-wrap items-center gap-2"
             onSubmit={(e) => {
               e.preventDefault();
               void start();
@@ -326,23 +326,25 @@ export default function App() {
 
       <div className="flex min-h-0 flex-1">
         {/* nav */}
-        <nav className="flex w-44 flex-col border-r border-line py-2">
+        <nav className="flex w-12 flex-col border-r border-line py-2 sm:w-44">
           {NAV.map(([v, label]) => (
             <button
               key={v}
               onClick={() => setView(v)}
-              className={`px-4 py-1.5 text-left uppercase tracking-wider ${
+              className={`px-2 py-1.5 text-left uppercase tracking-wider sm:px-4 ${
                 view === v ? "bg-panel-2 text-fg" : "text-dim hover:bg-panel hover:text-fg"
               }`}
+              title={label}
             >
-              {view === v ? "> " : "  "}
-              {label}
+              {view === v ? ">" : " "}
+              <span className="hidden sm:inline"> {label}</span>
+              <span className="sm:hidden"> {label.slice(0, 3)}</span>
             </button>
           ))}
         </nav>
 
         {/* view */}
-        <main className="min-w-0 flex-1 overflow-auto p-4">
+        <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-2 sm:p-4">
           {!running && view !== "log" ? (
             <EmptyState />
           ) : (

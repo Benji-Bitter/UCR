@@ -161,6 +161,17 @@ impl Packet {
                         return Err(ProtocolError::Malformed("channel id/name mismatch"));
                     }
                 }
+                crate::payload::AppData::ChannelVoice(c) => {
+                    if c.name.len() > crate::CHANNEL_NAME_MAX {
+                        return Err(ProtocolError::FieldTooLong("channel name"));
+                    }
+                    if c.data.len() > crate::VOICE_FRAME_MAX {
+                        return Err(ProtocolError::FieldTooLong("voice frame"));
+                    }
+                    if c.channel != crate::ids::ChannelId::from_name(&c.name) {
+                        return Err(ProtocolError::Malformed("channel id/name mismatch"));
+                    }
+                }
                 crate::payload::AppData::Plain(p) => {
                     if let crate::payload::PlainApp::Morse { text, .. } = p {
                         if text.len() > crate::TEXT_MAX {

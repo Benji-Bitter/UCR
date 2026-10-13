@@ -358,6 +358,37 @@ export class FallbackSim {
     return Promise.resolve(pid);
   }
 
+  // Voice: echo the frame back as if the nearest sim peer relayed it — lets
+  // the mic→codec→speaker path be exercised with no real peers.
+  sendVoice(
+    idx: number,
+    channel: string,
+    codec: number,
+    txId: number,
+    seq: number,
+    last: boolean,
+    data: number[],
+  ): Promise<number> {
+    const peer = this.nodes.find((n, i) => i !== idx && n.enabled) ?? this.nodes[idx];
+    setTimeout(() => {
+      this.emit(idx, {
+        VoiceFrame: {
+          channel: fnv8(channel),
+          channel_name: channel,
+          from: peer.node_id,
+          callsign: peer.callsign,
+          codec,
+          tx_id: txId,
+          seq,
+          last,
+          data,
+          hops: 1,
+        },
+      });
+    }, 60);
+    return Promise.resolve(this.pktSeq++);
+  }
+
   sendDm(idx: number, peer: string, text: string): Promise<number> {
     const pid = this.pktSeq++;
     const msgId = this.msgSeq++;

@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import { api, ChannelDto, NodeInfoDto, StoredMsg, UcrEvent, eventKind, eventBody } from "../api";
+import { useEffect, useRef, useState } from "react";
+import { api, ChannelDto, NodeInfoDto, StoredMsg, UcrEvent, eventKind, eventBody, onUcrEvent } from "../api";
+import { VOICE_CODEC_ADPCM, VoiceRx, VoiceTx } from "../audio";
 
 export default function Channels({
   me,
@@ -15,6 +16,17 @@ export default function Channels({
   const [name, setName] = useState("");
   const [text, setText] = useState("");
   const [history, setHistory] = useState<StoredMsg[]>([]);
+  // push-to-talk state
+  const [ptt, setPtt] = useState(false);
+  const [talker, setTalker] = useState<string | null>(null);
+  const [micErr, setMicErr] = useState("");
+  const txRef = useRef<VoiceTx | null>(null);
+  const rxRef = useRef(new VoiceRx());
+  const txIdRef = useRef(0);
+  const seqRef = useRef(0);
+  const talkerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeRef = useRef(active);
+  activeRef.current = active;
 
   const refresh = async () => {
     setChannels(await api.nodeChannels(me));
@@ -39,11 +51,79 @@ export default function Channels({
     setTimeout(() => void refresh(), 400);
   };
 
+  // ---- voice: subscribe to VoiceFrame events for the active channel ----
+  useEffect(() => {
+    const un = onUcrEvent((e) => {
+      if (eventKind(e.event) !== "VoiceFrame" || e.node !== me) return;
+      const b = eventBody(e.event);
+      if (String(b.channel_name) !== activeRef.current) return;
+      rxRef.current.push(
+        String(b.from),
+        Number(b.codec),
+        Number(b.tx_id),
+        Number(b.seq),
+        Boolean(b.last),
+        Uint8Array.from(b.data as number[]),
+      );
+      setTalker(String(b.callsign));
+      if (talkerTimer.current) clearTimeout(talkerTimer.current);
+      talkerTimer.current = setTimeout(() => setTalker(null), 500);
+    });
+    return () => {
+      void un.then((f) => f());
+    };
+  }, [me]);
+
+  const pttDown = async () => {
+    setMicErr("");
+    try {
+      const tx = new VoiceTx();
+      txRef.current = tx;
+      txIdRef.current = (txIdRef.current + 1) & 0xffff;
+      seqRef.current = 0;
+      const txId = txIdRef.current;
+      await tx.start((data, last) => {
+        void api.sendVoice(
+          me,
+          activeRef.current,
+          VOICE_CODEC_ADPCM,
+          txId,
+          seqRef.current++,
+          last,
+          Array.from(data),
+        );
+      });
+      setPtt(true);
+    } catch (e) {
+      txRef.current = null;
+      setMicErr(`mic: ${String(e)}`);
+    }
+  };
+
+  const pttUp = () => {
+    const tx = txRef.current;
+    if (!tx) return;
+    txRef.current = null;
+    const txId = txIdRef.current;
+    tx.stop((data, last) => {
+      void api.sendVoice(
+        me,
+        activeRef.current,
+        VOICE_CODEC_ADPCM,
+        txId,
+        seqRef.current++,
+        last,
+        Array.from(data),
+      );
+    });
+    setPtt(false);
+  };
+
   return (
-    <div className="flex h-full gap-4">
-      <aside className="w-56 shrink-0">
+    <div className="flex h-full flex-col gap-4 sm:flex-row">
+      <aside className="shrink-0 sm:w-52">
         <div className="mb-2 text-dim">channels</div>
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-row flex-wrap gap-1 sm:flex-col sm:flex-nowrap">
           {[...new Set(["ucr.public", "ucr.general", ...channels.map((c) => c.name), active])].map(
             (c) => (
               <button
@@ -79,8 +159,33 @@ export default function Channels({
       </aside>
 
       <section className="flex min-w-0 flex-1 flex-col rounded border border-line bg-panel">
-        <div className="border-b border-line px-3 py-2">
-          #{active} <span className="text-dim">— flooded · signed</span>
+        {/* voice first — a channel is a frequency, hold to transmit */}
+        <div className="flex flex-wrap items-center gap-3 border-b border-line px-3 py-2">
+          <button
+            onPointerDown={() => void pttDown()}
+            onPointerUp={pttUp}
+            onPointerLeave={() => ptt && pttUp()}
+            onPointerCancel={pttUp}
+            onContextMenu={(e) => e.preventDefault()}
+            className={`touch-none select-none px-4 py-2 font-bold uppercase tracking-wider ${
+              ptt ? "inv" : "border border-line hover:bg-fg hover:text-ink"
+            }`}
+          >
+            {ptt ? "● tx — release to end" : "[ hold to talk ]"}
+          </button>
+          <div className="text-dim">
+            {talker ? (
+              <span className="text-fg">◉ {talker} on the air</span>
+            ) : (
+              <span>
+                #{active} — listening
+              </span>
+            )}
+            {micErr && <span className="ml-2 text-fg">{micErr}</span>}
+          </div>
+        </div>
+        <div className="border-b border-line px-3 py-1 text-dim">
+          #{active} <span className="text-dim">— voice + text · flooded · signed</span>
         </div>
         <div className="min-h-0 flex-1 overflow-auto p-3">
           {chanEvents.length === 0 && history.length === 0 && (
@@ -110,15 +215,16 @@ export default function Channels({
             placeholder={`message #${active}…`}
             className="min-w-0 flex-1 rounded border border-line bg-panel-2 px-3 py-1.5"
           />
-          <button className="rounded border border-accent/50 bg-accent/10 px-4 text-accent">send</button>
+          <button className="rounded border border-line bg-panel px-4 text-dim hover:bg-fg hover:text-ink">send</button>
         </form>
       </section>
 
       <aside className="hidden w-52 shrink-0 text-dim xl:block">
         <div className="mb-2">about #{active}</div>
         <div className="text-xs leading-5">
-          channel messages are flooded to every node within scope and signed by
-          the originator. hop count and verification show on each message.
+          hold to talk transmits signed adpcm voice frames, flooded to every
+          node on the channel — real-time, never replayed. text floods the
+          same way. hop count and verification show on each message.
           {infos[me] && (
             <div className="mt-3">
               operating as <span className="text-fg">{infos[me].callsign}</span>

@@ -656,7 +656,7 @@ export default function Network({
           )}
         </form>
       </div>
-      <div className="flex items-center gap-4 border border-line bg-panel px-4 py-2 text-dim">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border border-line bg-panel px-4 py-2 text-dim">
         {sel ? (
           <>
             <span className="text-fg">[{sel.callsign}]</span>

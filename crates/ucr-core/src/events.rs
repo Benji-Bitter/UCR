@@ -26,6 +26,24 @@ pub enum NodeEvent {
         /// Whether the packet signature verified.
         verified: bool,
     },
+    /// A push-to-talk voice frame arrived on a channel.
+    VoiceFrame {
+        channel: ChannelId,
+        channel_name: String,
+        from: NodeId,
+        callsign: String,
+        /// Codec id (see `ucr_protocol::payload::voice_codecs`).
+        codec: u8,
+        /// Transmission id — groups frames of one PTT press.
+        tx_id: u16,
+        /// Frame order within the transmission.
+        seq: u16,
+        /// True on the final frame.
+        last: bool,
+        /// Encoded audio bytes.
+        data: Vec<u8>,
+        hops: u8,
+    },
     /// An encrypted direct message was received and decrypted.
     DirectMessage {
         from: NodeId,

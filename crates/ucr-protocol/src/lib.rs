@@ -60,6 +60,10 @@ pub const DESC_MAX: usize = 96;
 pub const CHANNEL_NAME_MAX: usize = 32;
 /// Maximum text message length in bytes (before encoding).
 pub const TEXT_MAX: usize = 512;
+
+/// Maximum encoded bytes in a channel voice frame. Sized for ~100 ms of
+/// IMA-ADPCM 8kHz mono (400 B) inside the 512-byte packet budget.
+pub const VOICE_FRAME_MAX: usize = 420;
 /// Maximum number of recently-heard neighbours advertised in a beacon.
 pub const BEACON_SEEN_MAX: usize = 6;
 /// Maximum accumulated path length in route discovery packets.

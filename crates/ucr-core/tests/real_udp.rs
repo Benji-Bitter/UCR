@@ -114,6 +114,33 @@ async fn udp_dm_delivery_e2e_encrypted() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn udp_voice_frames_flood() {
+    let (a, b) = udp_pair().await;
+    let mut rx = b.events();
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+    while !b.neighbors().iter().any(|n| n.node_id == a.node_id())
+        && tokio::time::Instant::now() < deadline
+    {
+        sleep(Duration::from_millis(50)).await;
+    }
+    let ch = ucr_protocol::ChannelId::from_name("ucr-general");
+    // three frames of fake ADPCM then an end marker
+    for seq in 0..3u16 {
+        a.send_channel_voice(&ch, 1, 7, seq, seq == 2, &[0xABu8; 200])
+            .expect("voice send");
+    }
+    let got = wait_event(
+        &mut rx,
+        |ev| matches!(ev, NodeEvent::VoiceFrame { last: true, .. }),
+        10_000,
+    )
+    .await;
+    assert!(got, "B never saw a voice frame over real UDP");
+    a.stop();
+    b.stop();
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn udp_channel_flood() {
     let (a, b) = udp_pair().await;
     let mut rx = b.events();

@@ -71,7 +71,7 @@ export default function Morse({
           <select
             value={peer}
             onChange={(e) => setPeer(e.target.value)}
-            className="w-44 rounded border border-line bg-panel-2 px-2 py-1.5"
+            className="w-full max-w-44 rounded border border-line bg-panel-2 px-2 py-1.5"
           >
             <option value="">peer…</option>
             {topo

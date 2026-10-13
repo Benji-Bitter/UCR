@@ -44,10 +44,10 @@ export default function Direct({
     infos.find((i) => i.node_id === hex)?.callsign ?? hex.slice(0, 8);
 
   return (
-    <div className="flex h-full gap-4">
-      <aside className="w-56 shrink-0">
+    <div className="flex h-full flex-col gap-4 sm:flex-row">
+      <aside className="shrink-0 sm:w-52">
         <div className="mb-2 text-dim">peers</div>
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-row flex-wrap gap-1 sm:flex-col sm:flex-nowrap">
           {peers.map(({ idx, n }) => (
             <button
               key={n.node_id}

@@ -137,6 +137,8 @@ struct NodeInner {
     emergency_log: Mutex<Vec<EmergRecord>>,
     /// app-level message dedup: (src, msg_id)
     seen_msgs: Mutex<HashSet<(NodeId, MsgId)>>,
+    /// Voice frame dedup — (src, tx_id, seq); bounded and cleared.
+    seen_voice: Mutex<HashSet<(NodeId, u16, u16)>>,
     /// known custom tones per node
     tones: Mutex<HashMap<NodeId, TonePattern>>,
     /// Serialised outbound wire frames — preserves packet order on the medium.
@@ -240,6 +242,7 @@ impl NodeBuilder {
                 emergency_last_sent: Mutex::new(0),
                 emergency_log: Mutex::new(Vec::new()),
                 seen_msgs: Mutex::new(HashSet::new()),
+                seen_voice: Mutex::new(HashSet::new()),
                 tones: Mutex::new(HashMap::new()),
                 tx_pump,
                 shutdown: tokio::sync::Notify::new(),
@@ -408,6 +411,50 @@ impl Node {
             at_ms: now,
             delivery: DeliveryState::Sent,
         });
+        Ok(msg_id)
+    }
+
+    /// Push-to-talk voice: flood one encoded frame to a channel. Real-time
+    /// traffic — signed so senders are authenticatable, flooded so every
+    /// listener hears it, and deliberately unacked/unstored (voice loss is
+    /// skipped, never replayed). `tx_id` groups a press, `seq` orders it,
+    /// `last` ends it.
+    pub fn send_channel_voice(
+        &self,
+        channel: &ChannelId,
+        codec: u8,
+        tx_id: u16,
+        seq: u16,
+        last: bool,
+        data: &[u8],
+    ) -> Result<MsgId, SendError> {
+        let ch = self
+            .channels()
+            .into_iter()
+            .find(|c| &c.id == channel)
+            .ok_or(SendError::UnknownChannel)?;
+        let msg_id = self.next_msg_id();
+        let pkt = {
+            let mut r = self.inner.router.lock();
+            r.originate_broadcast(
+                ch.scope,
+                Payload::Data(DataMsg {
+                    app: AppData::ChannelVoice(ChannelVoice {
+                        channel: ch.id,
+                        name: ch.name.clone(),
+                        scope: ch.scope,
+                        codec,
+                        tx_id,
+                        seq,
+                        last,
+                        data: data.to_vec(),
+                    }),
+                }),
+                Priority::Control,
+            )
+        };
+        self.transmit_signed(&pkt)?;
+        self.record_outbound(None, None, &pkt, Some(msg_id));
         Ok(msg_id)
     }
 
@@ -1433,6 +1480,9 @@ impl Node {
                 AppData::ChannelText(ct) => {
                     self.on_channel_text(&pkt, ct, verified, meta);
                 }
+                AppData::ChannelVoice(cv) => {
+                    self.on_channel_voice(&pkt, cv);
+                }
                 AppData::Plain(PlainApp::Morse { text, wpm }) => {
                     if self.blocked_or_event(&pkt.header.src) {
                         return;
@@ -1573,6 +1623,46 @@ impl Node {
             }
             let _ = self.inner.store.upsert_contact(&c);
         }
+    }
+
+    /// Voice frames are real-time: no store, no acks, no retry — emit
+    /// straight to the UI for the jitter buffer. Dedup still applies at
+    /// the router level (flood loops), so we key on (src, tx_id, seq).
+    fn on_channel_voice(&self, pkt: &Packet, cv: &ChannelVoice) {
+        let src = pkt.header.src;
+        if src == self.node_id() {
+            return;
+        }
+        if self.blocked_or_event(&src) {
+            return;
+        }
+        if !self.inner.seen_voice.lock().insert((src, cv.tx_id, cv.seq)) {
+            return;
+        }
+        if self.inner.seen_voice.lock().len() > 4096 {
+            self.inner.seen_voice.lock().clear();
+        }
+        let callsign = self.callsign_of(&src);
+        // Learn the channel like channel text does.
+        if !self.channels().iter().any(|c| c.id == cv.channel) {
+            let _ = self.inner.store.upsert_channel(&ChannelInfo::new(
+                &cv.name,
+                ChannelCategory::General,
+                cv.scope,
+            ));
+        }
+        self.emit(NodeEvent::VoiceFrame {
+            channel: cv.channel,
+            channel_name: cv.name.clone(),
+            from: src,
+            callsign,
+            codec: cv.codec,
+            tx_id: cv.tx_id,
+            seq: cv.seq,
+            last: cv.last,
+            data: cv.data.clone(),
+            hops: pkt.header.hops,
+        });
     }
 
     fn on_channel_text(&self, pkt: &Packet, ct: &ChannelText, verified: bool, meta: &RxMeta) {
