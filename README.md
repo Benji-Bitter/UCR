@@ -86,6 +86,41 @@ for the real xtensa target. See [ROADMAP.md](ROADMAP.md).
   (drag to rotate, scroll to zoom, search places/nodes), channels, DMs,
   groups, contacts, emergency, Morse, and a full event log.
 
+## The builds
+
+Every UCR node is one of these. Same `ucr-modem` firmware, same wire
+protocol, different scale of ambition. Full parts lists, wiring tables,
+and honest caveats live in [docs/hardware](docs/hardware/first-node.md).
+
+| build | ~cost | what it is | guide |
+|-------|-------|------------|-------|
+| **first node** | $12–25 | ESP32-S3 + SX1262 breakout on your desk. The reference build; flashes and works. | [first-node.md](docs/hardware/first-node.md) |
+| **the pocket node** | $20 | Heltec LoRa 32 V3 + 18650 + whip. Zero soldering, walks with you, tethered to the app. | [handheld.md](docs/hardware/handheld.md) |
+| **the field node** | $50 | T-Beam Supreme: own battery, own GPS, weatherproofed. The go-bag unit. | [handheld.md](docs/hardware/handheld.md) |
+| **the standalone radio** | $80–120 | T-Deck or full DIY: screen, keyboard, mic, speaker, real PTT button. Voice on-device. | [handheld.md](docs/hardware/handheld.md) |
+| **the don** | $45 | Attic relay. Pi Zero 2 W + SX1262 board, always on, keeps your block meshed. | [godfather.md](docs/hardware/godfather.md) |
+| **the godfather** | $120–150 | Mast-mounted community relay. 5–8dBi collinear, IP65 box, RF↔LAN↔TCP gateway in one process. | [godfather.md](docs/hardware/godfather.md) |
+| **your own modem** | varies | The serial contract is six lines. Any MCU, any language: frame it, answer `UCRPING`, respect the air. | [first-node.md](docs/hardware/first-node.md) |
+| **nothing** | free | `ucr-node` over LAN UDP/TCP. Same protocol, same app, no radio required. | [CLI tools](#cli-tools) |
+
+Got a board not in this list? [devices.md](docs/hardware/devices.md)
+catalogs ~20 boards by effort tier: drop-in, pin-map edit, HAL port, or
+driver swap. Pin-map PRs for new boards are the friendliest contribution
+going.
+
+## Quickstart
+
+```bash
+git clone https://github.com/Benji-Bitter/UCR.git && cd UCR
+cargo test --workspace              # prove the stack end-to-end (~3 min)
+cd apps/desktop && pnpm install && pnpm tauri dev
+```
+
+The window that opens is the whole product: `[ go online ]` puts a real
+node on LAN broadcast + TCP + whatever serial hardware it autodetects.
+`[ run sim ]` is the labelled test world. Channels are voice-first, DMs
+are encrypted end to end, the globe shows live topology.
+
 ## Requirements
 
 | Tool | Why | Install |
@@ -184,7 +219,8 @@ cargo run -p ucr-cli --bin ucr-node -- --callsign BRAVO --connect 127.0.0.1:4402
 cargo run -p ucr-cli --bin ucr-node -- --callsign VK2X --serial /dev/ttyUSB0
 
 # Useful flags: --udp-port, --no-udp, --lat/--lon (coarse position to
-# announce), --data-dir (persistent identity), --baud, --no-relay.
+# announce), --data-dir (persistent identity), --baud, --no-relay,
+# --class (individual | base | relay | community | ...).
 ```
 
 In `ucr-node`, bare text goes to `ucr.public`. `/help` lists commands
@@ -254,6 +290,10 @@ docs/           protocol, architecture, security, hardware, development
 - [docs/protocol/wire-format.md](docs/protocol/wire-format.md): packet & crypto spec
 - [docs/architecture/overview.md](docs/architecture/overview.md): crate map & data flow
 - [docs/security/model.md](docs/security/model.md): threat model & crypto rationale
+- [docs/hardware/first-node.md](docs/hardware/first-node.md): build your first node
+- [docs/hardware/handheld.md](docs/hardware/handheld.md): three handheld tiers
+- [docs/hardware/godfather.md](docs/hardware/godfather.md): the always-on relay
+- [docs/hardware/devices.md](docs/hardware/devices.md): supported-boards catalog
 - [docs/hardware/reference.md](docs/hardware/reference.md): firmware plan + HAL porting guide
 - [docs/protocol/serial.md](docs/protocol/serial.md): host-to-modem serial protocol
 - [firmware/ucr-modem/README.md](firmware/ucr-modem/README.md): build & flash
