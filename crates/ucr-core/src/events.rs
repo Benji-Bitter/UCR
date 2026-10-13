@@ -131,6 +131,8 @@ pub enum NodeEvent {
     /// Inbound traffic from a blocked identity was discarded at the
     /// application layer (it was still relayed normally by routing).
     BlockedDrop { from: NodeId },
+    /// The digital lock (PIN-gated TX) engaged or disengaged.
+    LockChanged { locked: bool },
     /// A packet failed signature verification or structural checks.
     InvalidPacket {
         from: Option<NodeId>,

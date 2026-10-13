@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, DetectDto, IS_TAURI, NodeInfoDto, NodeVisDto, StatsDto, UcrEvent, eventKind, onUcrEvent } from "./api";
+import { api, DetectDto, IS_TAURI, NodeInfoDto, NodeVisDto, StatsDto, UcrEvent, eventBody, eventKind, onUcrEvent } from "./api";
 import { CITIES } from "./views/Network";
 import Channels from "./views/Channels";
 import Contacts from "./views/Contacts";
@@ -30,6 +30,15 @@ export default function App() {
   const [topo, setTopo] = useState<NodeVisDto[]>([]);
   const [stats, setStats] = useState<StatsDto | null>(null);
   const [me, setMe] = useState(0);
+  // Digital lock — PIN-gated TX, mirrored from the node via stats/events.
+  const [locked, setLocked] = useState(false);
+  const [lockUi, setLockUi] = useState(false);
+  const [pinInput, setPinInput] = useState("");
+  const [lockErr, setLockErr] = useState("");
+  const meRef = useRef(me);
+  meRef.current = me;
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
   const [infos, setInfos] = useState<NodeInfoDto[]>([]);
   const [events, setEvents] = useState<(UcrEvent & { at: number })[]>([]);
   const [nodeCount, setNodeCount] = useState(4);
@@ -60,6 +69,8 @@ export default function App() {
         if (!live) return;
         setTopo(t);
         setStats(s);
+        // The backend's lock bit is "self" — in sim that's node 0 only.
+        if (modeRef.current === "real" || meRef.current === 0) setLocked(s.locked);
         // Refresh node infos — real-mode topo includes remote peers, which
         // aren't local nodes; fall back to their announced callsign/id.
         const inf = await Promise.all(
@@ -120,6 +131,9 @@ export default function App() {
     if (!running) return;
     const un = onUcrEvent((e) => {
       setEvents((prev) => [...prev.slice(-400), { ...e, at: Date.now() }]);
+      if (eventKind(e.event) === "LockChanged" && e.node === meRef.current) {
+        setLocked(!!eventBody(e.event).locked);
+      }
     });
     return () => {
       void un.then((f) => f());
@@ -166,6 +180,41 @@ export default function App() {
     }
   }, [callsign, udpPort, tcpPort, connect, serialPath, posIdx]);
 
+  const submitLock = useCallback(async () => {
+    setLockErr("");
+    try {
+      if (locked) {
+        if (await api.unlockNode(me, pinInput)) {
+          setPinInput("");
+          setLockUi(false);
+        } else {
+          setLockErr("wrong pin");
+        }
+      } else {
+        await api.lockNode(me, pinInput);
+        setLocked(true);
+        setPinInput("");
+        setLockUi(false);
+      }
+    } catch (e) {
+      setLockErr(String(e));
+    }
+  }, [locked, me, pinInput]);
+
+  const removePin = useCallback(async () => {
+    setLockErr("");
+    try {
+      if (await api.clearLock(me, pinInput)) {
+        setPinInput("");
+        setLockUi(false);
+      } else {
+        setLockErr("wrong pin");
+      }
+    } catch (e) {
+      setLockErr(String(e));
+    }
+  }, [me, pinInput]);
+
   const stop = useCallback(async () => {
     if (mode === "real") await api.realStop();
     else await api.simStop();
@@ -173,6 +222,7 @@ export default function App() {
     setTopo([]);
     setStats(null);
     setInfos([]);
+    setLockUi(false);
   }, [mode]);
 
   const myEvents = events.filter((e) => e.node === me);
@@ -231,11 +281,64 @@ export default function App() {
               </span>
             )}
             <button
+              onClick={() => {
+                setLockUi((v) => !v);
+                setLockErr("");
+              }}
+              title={
+                locked
+                  ? "digital lock engaged — tx is gated, rx/relay continue"
+                  : "digital lock — set a PIN to gate transmission"
+              }
+              className={`border border-line px-3 py-1 uppercase tracking-wider ${
+                locked ? "bg-fg text-ink" : "bg-panel hover:bg-fg hover:text-ink"
+              }`}
+            >
+              {locked ? "[ locked ]" : "[ lock ]"}
+            </button>
+            <button
               onClick={stop}
               className="border border-line bg-panel px-3 py-1 uppercase tracking-wider hover:bg-fg hover:text-ink"
             >
               [ stop ]
             </button>
+            {lockUi && (
+              <form
+                className="flex w-full items-center gap-2 border-t border-line pt-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void submitLock();
+                }}
+              >
+                <span className="text-dim">
+                  {locked ? "enter pin to unlock" : "set a pin — node boots locked from now on"}
+                </span>
+                <input
+                  type="password"
+                  autoFocus
+                  value={pinInput}
+                  onChange={(e) => setPinInput(e.target.value)}
+                  placeholder="pin (4+ chars)"
+                  className="w-40 border border-line bg-panel px-2 py-1 placeholder:text-dim"
+                />
+                <button
+                  type="submit"
+                  className="border border-line bg-panel px-3 py-1 uppercase tracking-wider hover:bg-fg hover:text-ink"
+                >
+                  {locked ? "[ unlock ]" : "[ lock ]"}
+                </button>
+                {locked && (
+                  <button
+                    type="button"
+                    onClick={() => void removePin()}
+                    className="border border-line bg-panel px-3 py-1 uppercase tracking-wider hover:bg-fg hover:text-ink"
+                  >
+                    [ remove pin ]
+                  </button>
+                )}
+                {lockErr && <span className="text-dim">{lockErr}</span>}
+              </form>
+            )}
           </>
         ) : form === "real" && IS_TAURI ? (
           <form

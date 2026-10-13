@@ -102,6 +102,9 @@ struct StatsDto {
     link_mtu: usize,
     link_bitrate: u32,
     link_name: String,
+    /// Digital lock state — sim nodes are never locked; real nodes report
+    /// their actual PIN-lock state so the UI can gate its send affordances.
+    locked: bool,
 }
 
 fn link_profile(mux: &MuxTransport) -> (usize, u32, String) {
@@ -325,6 +328,7 @@ fn sim_stats(state: State<'_, AppState>) -> Result<StatsDto, String> {
             link_name: p
                 .map(|p| p.name.to_lowercase())
                 .unwrap_or_else(|| "sim".into()),
+            locked: false,
         });
     }
     if let Some(real) = state.real.lock().as_ref() {
@@ -341,6 +345,7 @@ fn sim_stats(state: State<'_, AppState>) -> Result<StatsDto, String> {
             link_mtu,
             link_bitrate,
             link_name,
+            locked: real.node.is_locked(),
         });
     }
     Err("no node running".into())
@@ -796,6 +801,25 @@ fn node_stats(state: State<'_, AppState>, idx: usize) -> Result<serde_json::Valu
 }
 
 // ---------------------------------------------------------------------------
+// Commands — digital lock (PIN-gated TX; rx/relay always continue)
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+fn lock_node(state: State<'_, AppState>, idx: usize, pin: String) -> Result<(), String> {
+    with_node(&state, idx, |n| n.lock(&pin).map_err(short_err))?
+}
+
+#[tauri::command]
+fn unlock_node(state: State<'_, AppState>, idx: usize, pin: String) -> Result<bool, String> {
+    with_node(&state, idx, |n| Ok(n.unlock(&pin)))?
+}
+
+#[tauri::command]
+fn clear_lock(state: State<'_, AppState>, idx: usize, pin: String) -> Result<bool, String> {
+    with_node(&state, idx, |n| Ok(n.clear_lock(&pin)))?
+}
+
+// ---------------------------------------------------------------------------
 // Event bridge — real NodeEvents forwarded to the frontend
 // ---------------------------------------------------------------------------
 
@@ -905,6 +929,9 @@ pub fn run() {
             send_group_text,
             accept_contact,
             block_contact,
+            lock_node,
+            unlock_node,
+            clear_lock,
             node_stats,
             subscribe_events,
         ])

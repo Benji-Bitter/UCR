@@ -99,6 +99,8 @@ export class FallbackSim {
     x: number;
     y: number;
     enabled: boolean;
+    locked: boolean;
+    pin: string | null;
     channels: Set<string>;
     contacts: Map<string, Contact>;
     rxCount: Map<number, number>;
@@ -119,6 +121,7 @@ export class FallbackSim {
     link_mtu: 400,
     link_bitrate: 5500,
     link_name: "simulator",
+    locked: false,
   };
   private msgSeq = 1;
   private pktSeq = 1;
@@ -139,6 +142,8 @@ export class FallbackSim {
       x: i * spacingM,
       y: 0,
       enabled: true,
+      locked: false,
+      pin: null,
       channels: new Set(DEFAULT_CHANNELS.map(([name]) => name)),
       contacts: new Map(),
       rxCount: new Map(),
@@ -177,7 +182,7 @@ export class FallbackSim {
       medium_tx: 0, medium_delivered: 0, medium_dropped_loss: 0,
       medium_dropped_collision: 0, medium_dropped_halfduplex: 0,
       medium_dropped_blocked: 0, airtime_ms: 0,
-      link_mtu: 400, link_bitrate: 5500, link_name: "simulator",
+      link_mtu: 400, link_bitrate: 5500, link_name: "simulator", locked: false,
     };
     return Promise.resolve();
   }
@@ -241,7 +246,8 @@ export class FallbackSim {
   }
 
   simStats(): Promise<StatsDto> {
-    return Promise.resolve({ ...this.stats });
+    // The displayed lock badge tracks node 0 — the sim's "self" node.
+    return Promise.resolve({ ...this.stats, locked: this.nodes[0]?.locked ?? false });
   }
 
   // ---- node queries ------------------------------------------------------
@@ -353,7 +359,49 @@ export class FallbackSim {
     return Promise.resolve(fnv8(name));
   }
 
+  /** Digital lock — same PIN-gated TX model as the real node. */
+  lockNode(idx: number, pin: string): Promise<void> {
+    if (pin.length < 4) return Promise.reject("pin needs at least 4 characters");
+    const n = this.nodes[idx];
+    if (n) {
+      n.locked = true;
+      n.pin = pin;
+      this.emit(idx, { LockChanged: { locked: true } });
+    }
+    return Promise.resolve();
+  }
+
+  unlockNode(idx: number, pin: string): Promise<boolean> {
+    const n = this.nodes[idx];
+    const ok = !!n && n.pin === pin;
+    if (ok) {
+      n.locked = false;
+      this.emit(idx, { LockChanged: { locked: false } });
+    }
+    return Promise.resolve(ok);
+  }
+
+  clearLock(idx: number, pin: string): Promise<boolean> {
+    const n = this.nodes[idx];
+    const ok = !!n && n.pin === pin;
+    if (ok) {
+      n.locked = false;
+      n.pin = null;
+      this.emit(idx, { LockChanged: { locked: false } });
+    }
+    return Promise.resolve(ok);
+  }
+
+  private txGate(idx: number): Promise<void> | null {
+    if (this.nodes[idx]?.locked) {
+      return Promise.reject("node is locked — unlock with the PIN to transmit");
+    }
+    return null;
+  }
+
   sendChannelText(idx: number, channel: string, text: string): Promise<number> {
+    const gate = this.txGate(idx);
+    if (gate) return gate.then(() => 0);
     const pid = this.pktSeq++;
     const msgId = this.msgSeq++;
     this.recordCh(idx, channel, this.nodes[idx].node_id, "Outbound", text, "Sent");

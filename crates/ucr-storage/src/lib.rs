@@ -183,6 +183,11 @@ pub struct Settings {
     pub share_position: bool,
     /// Queue expiry for outbound messages, ms.
     pub queue_ttl_ms: u64,
+    /// Blake3 hash of the digital-lock PIN. `Some` = the node boots locked;
+    /// the PIN itself is never stored. Older stores without the field
+    /// deserialize as `None` (unlocked).
+    #[serde(default)]
+    pub lock_pin_hash: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -205,6 +210,7 @@ impl Default for Settings {
             theme: "dark".into(),
             share_position: false,
             queue_ttl_ms: 2 * 60 * 60 * 1000,
+            lock_pin_hash: None,
         }
     }
 }

@@ -74,7 +74,7 @@ radio, sized like one.
 | *DIY:* ESP32-S3 dev board | $12 | host CPU |
 | *DIY:* SX1262 breakout | $12 | radio |
 | *DIY:* 2.4" ILI9341 SPI TFT | $8 | status/channel screen |
-| *DIY:* 4×4 membrane keypad | $3 | text entry + numeric PTT-lock PIN pad |
+| *DIY:* 4×4 membrane keypad | $3 | text entry + digital-lock PIN pad |
 | *DIY:* INMP441 I2S mic | $3 | voice in |
 | *DIY:* MAX98357A + 8Ω speaker | $6 | voice out |
 | *DIY:* tactile PTT switch (GPIO) | $1 | hold-to-talk |
@@ -88,11 +88,16 @@ radio, sized like one.
 - **Screen + keypad** — needs the on-device UI milestone (embedded node
   port). Today the T-Deck runs modem firmware and tethers to a phone over
   USB-C; standalone UI is the flagship contribution.
-- **Keypad lock** — a real radio feature: PIN on wake so a borrowed unit
-  can't transmit as you. Locks *transmission*, never reception — you still
-  hear traffic and emergencies. Software, ships with the on-device UI.
-- **Case lock** — the printed clamshell accepts a keyed cam latch;
-  keep the battery bay sealed on field units.
+- **Digital lock** — implemented in `ucr-core` today: `Node::lock(pin)`/
+  `unlock(pin)` gate every user-originated send (channel text, voice, DMs,
+  groups, morse) while reception, relaying, and beacons continue — you
+  still hear traffic, and emergency deliberately bypasses the lock like an
+  SOS button on a locked phone. The PIN persists as a blake3 hash in the
+  node store, so the unit boots locked after a power cycle; `SendError::
+  Locked` is the refusal everywhere. Desktop exposes it via
+  `lock_node`/`unlock_node`/`clear_lock` + a header PIN entry; CLI has
+  `/lock` `/unlock` `/lockstate`. The handheld UI maps the same calls to
+  the 4×4 membrane pad.
 - **GPS** — announces coarse position; precise fix never leaves the box.
 - **Voice** — the I2S chain is where Codec2 lands on-device (the only
   voice codec that fits 1.75kbit/s LoRa).
@@ -188,7 +193,7 @@ get made.
 |---------|-----------|-----------------|
 | first node, scout, watchtower | tethered modem ✓ | — |
 | pocket, field, vehicle, base, don, godfather, go-box | tethered modem + host app ✓ | GPS→pos glue (GPS units) |
-| ranger | tethered modem ✓ | embedded node port, on-device UI, keypad lock, Codec2 |
+| ranger | tethered modem ✓ (digital lock ships in ucr-core) | embedded node port, on-device UI, Codec2 |
 
 `ucr-core` on ESP32 is the single unlock that turns the Ranger into a
 phone-free radio. It's the project's highest-value contribution; the

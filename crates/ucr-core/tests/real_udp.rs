@@ -247,3 +247,141 @@ async fn udp_channel_flood() {
     a.stop();
     b.stop();
 }
+
+/// The digital lock: a PIN on the node gates every user-originated send —
+/// the "keypad lock" on a real handheld. Reception continues (you still
+/// hear the net), and emergency deliberately bypasses it like an SOS
+/// button on a locked phone.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn digital_lock_gates_tx_not_rx() {
+    let (a, b) = udp_pair().await;
+    let ch = ucr_protocol::ChannelId::from_name("ucr-general");
+
+    // Pin too short refuses; locking engages.
+    assert!(a.lock("12").is_err());
+    a.lock("1-2-3-4").expect("lock");
+    assert!(a.is_locked());
+
+    // Every origin-send refuses while locked.
+    use ucr_core::SendError;
+    assert!(matches!(
+        a.send_channel_text(&ch, "nope"),
+        Err(SendError::Locked)
+    ));
+    assert!(matches!(
+        a.send_channel_voice(&ch, 1, 0, 0, true, &[0u8; 8]),
+        Err(SendError::Locked)
+    ));
+    assert!(matches!(
+        a.send_dm(b.node_id(), "nope"),
+        Err(SendError::Locked)
+    ));
+    assert!(matches!(
+        a.send_contact_request(b.node_id(), "nope"),
+        Err(SendError::Locked)
+    ));
+    assert!(matches!(
+        a.send_morse(b.node_id(), "nope", 15),
+        Err(SendError::Locked)
+    ));
+    assert!(matches!(a.create_group("g", "d"), Err(SendError::Locked)));
+
+    // Wrong PIN doesn't open it.
+    assert!(!a.unlock("9-9-9-9"));
+    assert!(a.is_locked());
+
+    // But the locked node still HEARS: B sends, A receives.
+    let mut rx = a.events();
+    let sender = tokio::spawn({
+        let b = b.clone();
+        let ch = ch.clone();
+        async move {
+            for _ in 0..30 {
+                let _ = b.send_channel_text(&ch, "heard while locked");
+                sleep(Duration::from_millis(200)).await;
+            }
+        }
+    });
+    assert!(
+        wait_event(
+            &mut rx,
+            |ev| matches!(ev, NodeEvent::ChannelMessage { text, .. } if text == "heard while locked"),
+            15_000,
+        )
+        .await,
+        "locked node stopped receiving"
+    );
+    sender.abort();
+
+    // Right PIN unlocks; sending works again.
+    assert!(a.unlock("1-2-3-4"));
+    assert!(!a.is_locked());
+    let mut rx = b.events();
+    a.send_channel_text(&ch, "back on air")
+        .expect("send after unlock");
+    assert!(
+        wait_event(
+            &mut rx,
+            |ev| matches!(ev, NodeEvent::ChannelMessage { text, .. } if text == "back on air"),
+            15_000,
+        )
+        .await,
+        "unlocked node couldn't transmit"
+    );
+    a.stop();
+    b.stop();
+}
+
+/// The lock survives a restart — a stolen radio stays locked even after
+/// a power cycle, because the PIN hash lives in the store.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn digital_lock_persists_across_restart() {
+    let dir = std::env::temp_dir().join(format!("ucr-lock-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    {
+        let store = ucr_storage::Store::open(&dir).unwrap();
+        let node = NodeBuilder::new()
+            .config(test_cfg("LOCKY"))
+            .store(store)
+            .pid_seed(5)
+            .start(MuxTransport::new())
+            .await
+            .unwrap();
+        node.lock("4321").unwrap();
+        node.stop();
+        // Background tasks hold the store until they observe shutdown —
+        // give them a moment so the redb file lock is released.
+        drop(node);
+        sleep(Duration::from_millis(500)).await;
+    }
+    {
+        // redb keeps an exclusive file lock — retry briefly if the old
+        // store hasn't fully dropped yet.
+        let mut store = None;
+        for _ in 0..20 {
+            match ucr_storage::Store::open(&dir) {
+                Ok(s) => {
+                    store = Some(s);
+                    break;
+                }
+                Err(_) => sleep(Duration::from_millis(100)).await,
+            }
+        }
+        let store = store.expect("reopen store");
+        let node = NodeBuilder::new()
+            .config(test_cfg("LOCKY"))
+            .store(store)
+            .pid_seed(5)
+            .start(MuxTransport::new())
+            .await
+            .unwrap();
+        assert!(node.is_locked(), "lock didn't survive restart");
+        assert!(matches!(
+            node.send_channel_text(&ucr_protocol::ChannelId::from_name("ucr-general"), "x"),
+            Err(ucr_core::SendError::Locked)
+        ));
+        assert!(node.unlock("4321"));
+        node.stop();
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}

@@ -53,6 +53,8 @@ export interface StatsDto {
   link_mtu: number;
   link_bitrate: number;
   link_name: string;
+  /** Digital lock — true when the node refuses user-originated sends. */
+  locked: boolean;
 }
 
 export interface NodeInfoDto {
@@ -213,6 +215,12 @@ export const api = {
     fb ? fb.acceptContact(idx, peer) : invoke<void>("accept_contact", { idx, peer }),
   blockContact: (idx: number, peer: string) =>
     fb ? fb.blockContact(idx, peer) : invoke<void>("block_contact", { idx, peer }),
+  lockNode: (idx: number, pin: string) =>
+    fb ? fb.lockNode(idx, pin) : invoke<void>("lock_node", { idx, pin }),
+  unlockNode: (idx: number, pin: string) =>
+    fb ? fb.unlockNode(idx, pin) : invoke<boolean>("unlock_node", { idx, pin }),
+  clearLock: (idx: number, pin: string) =>
+    fb ? fb.clearLock(idx, pin) : invoke<boolean>("clear_lock", { idx, pin }),
   subscribeEvents: () => (fb ? fb.subscribeEvents() : invoke<void>("subscribe_events")),
 };
 

@@ -364,6 +364,32 @@ async fn handle(node: &Node, line: &str, current_channel: &mut ChannelId) -> boo
                 println!("  {} {} members={}", g.group_id, g.name, g.members.len());
             }
         }
+        "/lock" => {
+            if arg1.is_empty() {
+                println!("usage: /lock <pin> — sets the PIN and engages the digital lock");
+            } else {
+                match node.lock(arg1) {
+                    Ok(()) => println!("locked — tx disabled until /unlock <pin>"),
+                    Err(e) => println!("lock failed: {e}"),
+                }
+            }
+        }
+        "/unlock" => {
+            if arg1.is_empty() {
+                println!("usage: /unlock <pin>");
+            } else if node.unlock(arg1) {
+                println!("unlocked — tx enabled");
+            } else {
+                println!("wrong pin");
+            }
+        }
+        "/lockstate" => {
+            if node.is_locked() {
+                println!("locked — rx/relay only, sends refused");
+            } else {
+                println!("unlocked");
+            }
+        }
         "/stats" => println!("{:?}", node.stats()),
         _ => println!("unknown command {cmd} — /help"),
     }
@@ -393,7 +419,7 @@ fn parse_emergency<'a>(cat: &'a str, text: &'a str) -> (EmergencyCategory, &'a s
 
 fn print_help() {
     println!(
-        "commands:\n  <text>                   send to current channel\n  /dm <nodeid> <text>      encrypted DM\n  /morse <nodeid> <text>   digital morse\n  /emergency <cat> <text>  categories: medical fire flood accident vessel missing other\n  /join <name>             join a channel\n  /channel <name>          set default channel\n  /accept <nodeid>         accept contact request\n  /block <nodeid>\n  /id /neighbors /routes /contacts /channels /groups /stats\n  /quit"
+        "commands:\n  <text>                   send to current channel\n  /dm <nodeid> <text>      encrypted DM\n  /morse <nodeid> <text>   digital morse\n  /emergency <cat> <text>  categories: medical fire flood accident vessel missing other\n  /join <name>             join a channel\n  /channel <name>          set default channel\n  /accept <nodeid>         accept contact request\n  /block <nodeid>\n  /lock <pin>              engage digital lock (tx gated; pin stored hashed)\n  /unlock <pin>            disengage lock\n  /lockstate               show lock state\n  /id /neighbors /routes /contacts /channels /groups /stats\n  /quit"
     );
 }
 

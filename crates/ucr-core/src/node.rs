@@ -1,7 +1,7 @@
 //! The node runtime — see module docs for the composed behaviour.
 
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -144,8 +144,21 @@ struct NodeInner {
     tones: Mutex<HashMap<NodeId, TonePattern>>,
     /// Serialised outbound wire frames — preserves packet order on the medium.
     tx_pump: tokio::sync::mpsc::UnboundedSender<Vec<u8>>,
+    /// Digital lock: when set, all user-originated sends are refused.
+    /// Reception, relaying, and beacons continue — a locked radio still
+    /// hears and still carries traffic for others. Persists via the PIN
+    /// hash in Settings; the node boots locked until the PIN unlocks it.
+    locked: AtomicBool,
     /// last contact-request texts seen (for accept/decline bookkeeping)
     shutdown: tokio::sync::Notify,
+}
+
+/// Blake3 hash of a digital-lock PIN — the stored form. Domain-tagged so
+/// a lock hash can't be confused with any other hash in the store.
+fn lock_hash(pin: &str) -> String {
+    blake3::hash(format!("ucr-lock:{pin}").as_bytes())
+        .to_hex()
+        .to_string()
 }
 
 /// A running UCR node. Clone-cheap handle — all state is shared.
@@ -246,6 +259,10 @@ impl NodeBuilder {
                 seen_voice: Mutex::new(HashSet::new()),
                 tones: Mutex::new(HashMap::new()),
                 tx_pump,
+                // A stored PIN hash means this node locks itself at boot —
+                // the radio wakes up locked until unlocked, like a real
+                // keypad-lock device.
+                locked: AtomicBool::new(stored.lock_pin_hash.is_some()),
                 shutdown: tokio::sync::Notify::new(),
             }),
         };
@@ -372,6 +389,66 @@ impl Node {
         ch.id
     }
 
+    // ---- digital lock ------------------------------------------------------
+
+    /// PIN-gated transmission — the "keypad lock" of a real handheld.
+    /// While locked, every user-originated send fails with
+    /// `SendError::Locked`; receiving, relaying for others, and beacons
+    /// continue unaffected. The PIN's blake3 hash persists in settings —
+    /// never the PIN — so a locked node stays locked across restarts.
+    pub fn lock(&self, pin: &str) -> Result<(), SendError> {
+        if pin.chars().count() < 4 {
+            return Err(SendError::Invalid("pin needs at least 4 characters"));
+        }
+        let mut s = self.inner.store.settings()?;
+        s.lock_pin_hash = Some(lock_hash(pin));
+        self.inner.store.save_settings(&s)?;
+        self.inner.locked.store(true, Ordering::Relaxed);
+        self.emit(NodeEvent::LockChanged { locked: true });
+        Ok(())
+    }
+
+    /// Attempt to unlock. Wrong PIN leaves the node locked (returns false).
+    pub fn unlock(&self, pin: &str) -> bool {
+        let ok = self
+            .inner
+            .store
+            .settings()
+            .ok()
+            .and_then(|s| s.lock_pin_hash)
+            .map(|h| h == lock_hash(pin))
+            .unwrap_or(false);
+        if ok {
+            self.inner.locked.store(false, Ordering::Relaxed);
+            self.emit(NodeEvent::LockChanged { locked: false });
+        }
+        ok
+    }
+
+    /// Remove the lock entirely. Requires the PIN — otherwise the lock
+    /// could be stripped off by whoever found the radio.
+    pub fn clear_lock(&self, pin: &str) -> bool {
+        if !self.unlock(pin) {
+            return false;
+        }
+        if let Ok(mut s) = self.inner.store.settings() {
+            s.lock_pin_hash = None;
+            let _ = self.inner.store.save_settings(&s);
+        }
+        true
+    }
+
+    pub fn is_locked(&self) -> bool {
+        self.inner.locked.load(Ordering::Relaxed)
+    }
+
+    fn check_unlocked(&self) -> Result<(), SendError> {
+        if self.is_locked() {
+            return Err(SendError::Locked);
+        }
+        Ok(())
+    }
+
     /// Send a text message to a channel. Returns the first msg id.
     /// Channel traffic is a signed, scoped flood — readable by anyone in
     /// range of any relay; never encrypted.
@@ -380,6 +457,7 @@ impl Node {
     /// across multiple packets (APRS-style chunking): each chunk becomes its
     /// own flood packet and history line, since UCR never reassembles.
     pub fn send_channel_text(&self, channel: &ChannelId, text: &str) -> Result<MsgId, SendError> {
+        self.check_unlocked()?;
         let ch = self
             .channels()
             .into_iter()
@@ -478,6 +556,7 @@ impl Node {
         last: bool,
         data: &[u8],
     ) -> Result<MsgId, SendError> {
+        self.check_unlocked()?;
         let ch = self
             .channels()
             .into_iter()
@@ -544,6 +623,7 @@ impl Node {
     /// Send an E2E-encrypted direct text. Establishes a session if needed;
     /// the message is queued behind the handshake automatically.
     pub fn send_dm(&self, peer: NodeId, text: &str) -> Result<MsgId, SendError> {
+        self.check_unlocked()?;
         if self.inner.store.is_blocked(&peer)? {
             return Err(SendError::Blocked);
         }
@@ -567,6 +647,7 @@ impl Node {
 
     /// Send a contact request (E2E, carries our profile).
     pub fn send_contact_request(&self, peer: NodeId, text: &str) -> Result<MsgId, SendError> {
+        self.check_unlocked()?;
         let cfg = self.inner.cfg.lock().clone();
         let msg_id = self.next_msg_id();
         let inner = InnerPlain::ContactRequest {
@@ -686,6 +767,7 @@ impl Node {
 
     /// Create a private group. The creator is the first admin.
     pub fn create_group(&self, name: &str, desc: &str) -> Result<GroupId, SendError> {
+        self.check_unlocked()?;
         let mut key_src = Vec::new();
         key_src.extend_from_slice(b"ucr-group");
         key_src.extend_from_slice(&self.node_id().0);
@@ -721,6 +803,7 @@ impl Node {
 
     /// Invite a peer (admin only) — the key travels inside the E2E session.
     pub fn invite_to_group(&self, group_id: GroupId, peer: NodeId) -> Result<(), SendError> {
+        self.check_unlocked()?;
         let g = self.must_group(&group_id)?;
         self.must_admin(&g)?;
         let msg_id = self.next_msg_id();
@@ -740,6 +823,7 @@ impl Node {
     }
 
     pub fn accept_group(&self, group_id: GroupId) -> Result<(), SendError> {
+        self.check_unlocked()?;
         let g = self.must_group(&group_id)?;
         let msg_id = self.next_msg_id();
         self.queue_or_send_e2e(
@@ -759,6 +843,7 @@ impl Node {
     }
 
     pub fn decline_group(&self, group_id: GroupId) -> Result<(), SendError> {
+        self.check_unlocked()?;
         let g = self.must_group(&group_id)?;
         let msg_id = self.next_msg_id();
         self.queue_or_send_e2e(
@@ -777,6 +862,7 @@ impl Node {
     /// Send an encrypted group message — flooded within the group's scope
     /// (`Regional`), ciphertext readable only by key-holding members.
     pub fn send_group_text(&self, group_id: GroupId, text: &str) -> Result<MsgId, SendError> {
+        self.check_unlocked()?;
         let g = self.must_group(&group_id)?;
         let msg_id = self.next_msg_id();
         let inner = InnerGroup::Text {
@@ -894,6 +980,9 @@ impl Node {
         text: &str,
         pos: Option<CoarsePos>,
     ) -> Result<u64, SendError> {
+        // Deliberately NOT lock-gated: emergency is the SOS button on a
+        // locked phone — found or borrowed hardware must still be able to
+        // call for help. Everything else respects the digital lock.
         let now = now_ms();
         let cooldown = self.inner.cfg.lock().emergency_cooldown_ms;
         {
@@ -940,6 +1029,7 @@ impl Node {
     /// Send a digital Morse message to a peer (E2E when a session exists,
     /// signed always). Digital Morse ≠ CW.
     pub fn send_morse(&self, peer: NodeId, text: &str, wpm: u8) -> Result<MsgId, SendError> {
+        self.check_unlocked()?;
         let msg_id = self.next_msg_id();
         let pkt = {
             let mut r = self.inner.router.lock();
@@ -1328,15 +1418,18 @@ impl Node {
         tokio::spawn(async move {
             loop {
                 let t = node.inner.transport.clone();
-                match t.recv().await {
-                    Ok((frame, meta)) => node.handle_frame(&frame, &meta),
-                    Err(_) => {
-                        node.emit(NodeEvent::Log {
-                            level: 1,
-                            msg: "transport closed; rx loop exiting".into(),
-                        });
-                        return;
-                    }
+                tokio::select! {
+                    r = t.recv() => match r {
+                        Ok((frame, meta)) => node.handle_frame(&frame, &meta),
+                        Err(_) => {
+                            node.emit(NodeEvent::Log {
+                                level: 1,
+                                msg: "transport closed; rx loop exiting".into(),
+                            });
+                            return;
+                        }
+                    },
+                    _ = node.inner.shutdown.notified() => return,
                 }
             }
         });
@@ -2307,6 +2400,8 @@ pub enum SendError {
     NoRoute,
     #[error("peer is blocked")]
     Blocked,
+    #[error("node is locked — unlock with the PIN to transmit")]
+    Locked,
     #[error("unknown channel")]
     UnknownChannel,
     #[error("unknown group")]

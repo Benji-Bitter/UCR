@@ -66,6 +66,10 @@ for the real xtensa target. See [ROADMAP.md](ROADMAP.md).
   rate-limited, and relayed regardless of sender blocking.
 - **Digital Morse** as UCR payloads (not CW), plus a keying decoder and
   playback scheduler for training.
+- **Digital lock** — a PIN gates every user-originated send (text, voice,
+  DMs, groups, morse) while receive/relay keep working, like a real
+  handheld's keypad lock. Emergency deliberately bypasses it; the PIN
+  persists as a blake3 hash so a locked node stays locked across restarts.
 - **Deterministic RF simulator** with a seeded medium: free-space path
   loss, shadowing, airtime, half-duplex, collisions, listen-before-talk,
   duty cycle, mobility, obstacles, and partitions. The whole protocol
