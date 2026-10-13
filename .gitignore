@@ -43,3 +43,4 @@ sim-out/
 
 # Local device-screen simulator (toy, not shipped)
 dev/
+apps/desktop/src-tauri/gen/android/**/.kotlin/
