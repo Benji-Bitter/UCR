@@ -34,6 +34,23 @@ no account, no internet required.
 The primary purpose is general public communication, private messaging,
 group communication, and emergency preparedness.
 
+## Start here
+
+| I want to… | go to |
+|-----------|-------|
+| run the app in 60 seconds | [Quickstart](#quickstart) |
+| build my first node (~$15) | [first-node.md](docs/hardware/first-node.md) |
+| pick a handheld to carry | [handheld.md](docs/hardware/handheld.md) — 3 tiers |
+| put one on my boat | [marine.md](docs/hardware/marine.md) — 3 tiers |
+| run an always-on relay | [godfather.md](docs/hardware/godfather.md) |
+| see all 16 builds + shopping lists | [products.md](docs/hardware/products.md) |
+| check if my board works | [devices.md](docs/hardware/devices.md) |
+| flash the ESP32 firmware | [firmware/ucr-modem](firmware/ucr-modem/README.md) |
+| write my own modem firmware | [protocol/serial.md](docs/protocol/serial.md) — the 6-line contract |
+| read the protocol spec | [wire-format.md](docs/protocol/wire-format.md) |
+| run it headless | [CLI tools](#cli-tools) — `ucr-node` |
+| contribute | [CONTRIBUTING.md](CONTRIBUTING.md) · [ROADMAP.md](ROADMAP.md) |
+
 **Status: early development.** The protocol core, mesh router, E2E
 cryptography, real IP transports (UDP LAN broadcast and TCP gateways), a
 serial modem transport, a deterministic RF simulator, and CLI tools are

@@ -45,12 +45,12 @@ actually went.
 
 | Part | ~Price | Why |
 |------|--------|-----|
-| Heltec LoRa 32 V3 (your ISM band) | $20 | board + radio + OLED + charger, zero soldering |
-| u-blox NEO-M8N GPS module | $10 | position — wires to the board's spare UART |
-| Short SMA whip, tuned | $10 | range |
-| u.fl→SMA pigtail | $3 | antenna feed |
-| IP67 polycarbonate box (~120×70×30mm) | $8 | salt water is the enemy |
-| Cable gland + wrist lanyard | $4 | sealing + don't drop it overboard |
+| [Heltec LoRa 32 V3](https://heltec.org/project/wifi-lora-32-v3/) (your ISM band) | $20 | board + radio + OLED + charger, zero soldering |
+| [u-blox NEO-M8N GPS module](https://www.u-blox.com/en/product/neo-m8-series) | $10 | position — wires to the board's spare UART |
+| [Short SMA whip, tuned](https://www.amazon.com/s?k=915mhz+lora+antenna+sma) | $10 | range |
+| [u.fl→SMA pigtail](https://www.amazon.com/s?k=ufl+to+sma+pigtail+cable) | $3 | antenna feed |
+| [IP67 polycarbonate box (~120×70×30mm)](https://www.amazon.com/s?k=ip67+waterproof+enclosure+box+small) | $8 | salt water is the enemy |
+| [Cable gland](https://www.amazon.com/s?k=cable+gland+ip68+small) + wrist lanyard | $4 | sealing + don't drop it overboard |
 
 **Build:** same flash as every build. Board lives in the gasket box; whip
 exits through the gland. USB-C charge port gets a sealed cap — every hole
@@ -68,13 +68,13 @@ while you sleep.
 
 | Part | ~Price | Why |
 |------|--------|-----|
-| ESP32-S3-DevKit + Wio-SX1262 (or Heltec V3) | $25 | the modem |
-| Pi Zero 2 W (+ SD) | $20 | always-on host — `ucr-node` runs the mesh |
-| u-blox NEO-M8N GPS module | $10 | position — dedicated fix, or feed NMEA from the plotter below |
-| Fused 12V→5V buck converter | $8 | clean power off the house bank |
-| IP65 junction box, nav-station size | $15 | behind the panel |
-| Rail/arch antenna bracket + tuned whip | $15 | stern rail or solar arch mount |
-| RG-58 run, glands, dielectric grease | $15 | below-deck feed |
+| [ESP32-S3-DevKit](https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32s3/) + [Wio-SX1262](https://www.seeedstudio.com/catalogsearch/result/?q=Wio-SX1262) (or Heltec V3) | $25 | the modem |
+| [Pi Zero 2 W](https://www.raspberrypi.com/products/raspberry-pi-zero-2-w/) (+ SD) | $20 | always-on host — `ucr-node` runs the mesh |
+| [u-blox NEO-M8N GPS module](https://www.u-blox.com/en/product/neo-m8-series) | $10 | position — dedicated fix, or feed NMEA from the plotter below |
+| [Fused 12V→5V buck converter](https://www.amazon.com/s?k=marine+12v+to+5v+buck+converter) | $8 | clean power off the house bank |
+| [IP65 junction box](https://www.amazon.com/s?k=ip65+junction+box+electrical), nav-station size | $15 | behind the panel |
+| [Rail/arch antenna bracket](https://www.amazon.com/s?k=marine+rail+antenna+mount) + [tuned whip](https://www.amazon.com/s?k=915mhz+lora+antenna+sma) | $15 | stern rail or solar arch mount |
+| [RG-58 run](https://www.amazon.com/s?k=rg58+coax+cable+sma), glands, dielectric grease | $15 | below-deck feed |
 | USB-C OTG cable (Pi↔modem) | $5 | wired link |
 
 **Build:** modem + Pi in the junction box at the nav station, antenna on
@@ -98,14 +98,14 @@ envelopes.
 | Part | ~Price | Why |
 |------|--------|-----|
 | ESP32-S3 + SX1262 pair | $25 | modem |
-| Pi 4 (or a Pi you own) | $55 | host + future AIS/NMEA gateway |
-| 5–8dBi collinear, marine mount | $45 | arch or mizzen-mast top — height × gain |
-| LMR-200 coax (10m) + glands | $25 | low-loss mast run |
-| IP65 enclosure + sealed panel | $20 | the electronics bay |
-| Fused buck + inline fuse + master switch | $12 | proper marine DC |
-| NMEA 0183 USB bridge (RS422↔USB) | $8 | the GPS feed — plotter position → coarse pos |
-| u-blox NEO-M10N (backup fix) | $10 | independent GPS when the plotter's off |
-| Dielectric grease, conformal coat, tinned wire | $15 | it lives in salt air |
+| [Pi 4](https://www.raspberrypi.com/products/raspberry-pi-4-model-b/) (or a Pi you own) | $55 | host + future AIS/NMEA gateway |
+| [5–8dBi collinear, marine mount](https://www.amazon.com/s?k=915mhz+collinear+antenna+marine) | $45 | arch or mizzen-mast top — height × gain |
+| [LMR-200 coax (10m)](https://www.amazon.com/s?k=lmr200+coax+cable+sma) + glands | $25 | low-loss mast run |
+| [IP65 enclosure](https://www.amazon.com/s?k=ip65+enclosure+box) + sealed panel | $20 | the electronics bay |
+| [Fused buck + inline fuse](https://www.amazon.com/s?k=marine+12v+buck+converter+fused) + master switch | $12 | proper marine DC |
+| [NMEA 0183 USB bridge (RS422↔USB)](https://www.amazon.com/s?k=usb+to+rs422+adapter+nmea) | $8 | the GPS feed — plotter position → coarse pos |
+| [u-blox NEO-M10N](https://www.u-blox.com/en/product/neo-m10-series) (backup fix) | $10 | independent GPS when the plotter's off |
+| [Dielectric grease, conformal coat, tinned wire](https://www.amazon.com/s?k=dielectric+grease+marine+electrical) | $15 | it lives in salt air |
 
 **Build:** same Don/Godfather config, vessel-grade materials.
 `ucr-node --callsign MV-ADMIRAL --class relay` on the Pi — the boat is
