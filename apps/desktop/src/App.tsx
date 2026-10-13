@@ -26,6 +26,8 @@ const NAV: [View, string][] = [
 export default function App() {
   const [view, setView] = useState<View>("network");
   const [mode, setMode] = useState<"idle" | "sim" | "real">("idle");
+  // Boot splash — shown on launch, dismisses on timer or any input.
+  const [booted, setBooted] = useState(false);
   const running = mode !== "idle";
   const [topo, setTopo] = useState<NodeVisDto[]>([]);
   const [stats, setStats] = useState<StatsDto | null>(null);
@@ -229,7 +231,40 @@ export default function App() {
     setLockUi(false);
   }, [mode]);
 
+  // Boot splash — a beat of branding, then the app. Any input skips it.
+  useEffect(() => {
+    if (booted) return;
+    const t = setTimeout(() => setBooted(true), 1800);
+    const skip = () => setBooted(true);
+    window.addEventListener("keydown", skip);
+    window.addEventListener("pointerdown", skip);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("keydown", skip);
+      window.removeEventListener("pointerdown", skip);
+    };
+  }, [booted]);
+
   const myEvents = events.filter((e) => e.node === me);
+
+  if (!booted) {
+    return (
+      <div
+        className="flex h-full flex-col items-center justify-center bg-ink text-fg"
+        onClick={() => setBooted(true)}
+      >
+        <pre className="text-center text-[clamp(8px,2.2vw,14px)] leading-tight">{String.raw`
+##      ##     ########     ########
+##      ##    ##            ##      ##
+##      ##    ##            ########
+##      ##    ##            ##    ##
+##########     ########     ##      ##`}</pre>
+        <div className="mt-4 text-sm tracking-[0.3em]">UNIVERSAL CITIZENS RADIO</div>
+        <div className="mt-2 text-xs text-dim">no servers · no accounts · no internet required</div>
+        <BootLog />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full flex-col bg-ink text-fg">
@@ -576,3 +611,28 @@ export function eventLabel(e: UcrEvent): string {
 }
 
 export { eventKind };
+
+/** POST-style boot sequence — types each line like a radio self-test. */
+function BootLog() {
+  const LINES = [
+    "ucr core v0.1",
+    "identity ed25519 .......... ok",
+    "mesh router .............. up",
+    "transport mux ............ armed",
+    "rf medium ................ standing by",
+  ];
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    if (n >= LINES.length) return;
+    const t = setTimeout(() => setN((v) => v + 1), 220 + Math.random() * 160);
+    return () => clearTimeout(t);
+  }, [n]);
+  return (
+    <div className="mt-6 h-20 text-left text-xs text-dim">
+      {LINES.slice(0, n).map((l) => (
+        <div key={l}>&gt; {l}</div>
+      ))}
+      {n < LINES.length && <span className="inline-block h-3 w-2 animate-pulse bg-fg" />}
+    </div>
+  );
+}

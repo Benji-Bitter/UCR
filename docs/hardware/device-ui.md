@@ -29,6 +29,32 @@ callsign left · channel · battery right; sub-row: mode, link profile,
 the `[ gps ]`/`[ lock ]` states exactly as the app header shows them.
 A user learns one strip of chrome and it follows them everywhere.
 
+## The boot screen — first thing the display ever says
+
+Every UCR unit wakes the same way: the mark, the name, the self-test.
+Drawn at OLED proportions — the TFT version keeps the same layout,
+breathed wider:
+
+```
+┌─────────────────────┐
+│                     │
+│  ##  ## ###### #####│
+│  ##  ## ##     ## ##│
+│  ##  ## ##     #####│
+│  ##  ## ##     ## ##│
+│  ###### ###### ## ##│
+│  universal citizens │
+│  radio · boot v0.1  │
+└─────────────────────┘
+```
+
+then the POST crawl replaces the center — same lines the host console
+prints (`identity … ok`, `radio sx1262 … ok`, `host link … up`), and a
+final beat on `ready`. A stuck line *is* the diagnostic: `radio init
+FAILED` freezes the splash so a dead wire announces itself on the screen,
+not just a log. The splash is a screen like any other in the state
+machine — first state on the ring, exits to `idle` on done/timeout/press.
+
 ## Navigation — three hardware classes
 
 | input | devices | model |

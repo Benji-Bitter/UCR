@@ -72,6 +72,18 @@ fn now_ms() -> u64 {
     Instant::now().duration_since_epoch().as_millis()
 }
 
+/// Boot banner — printed to the console UART before the radio task.
+/// Keep it tiny: every byte lands on the boot log.
+const BANNER: &str = concat!(
+    "\r\n",
+    "##      ##     ########     ########\r\n",
+    "##      ##    ##            ##      ##\r\n",
+    "##      ##    ##            ########\r\n",
+    "##      ##    ##            ##    ##\r\n",
+    "##########     ########     ##      ##\r\n",
+    "       universal citizens radio       \r\n",
+);
+
 #[esp_hal::main]
 fn main() -> ! {
     let p = esp_hal::init(esp_hal::Config::default());
@@ -79,6 +91,9 @@ fn main() -> ! {
     // allocates — this only satisfies the shared crate's code paths.
     esp_alloc::heap_allocator!(size: 32 * 1024);
     let delay = Delay::new();
+
+    println!("{BANNER}");
+    println!("ucr-modem: boot — sx1262 init, host link up");
 
     // ---------- Host link: USB-SERIAL-JTAG (native USB port) ----------
     // Logs go to UART0 (see esp-println config), keeping this stream clean.
