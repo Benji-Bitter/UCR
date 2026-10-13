@@ -177,7 +177,10 @@ In `ucr-node`, bare text goes to `ucr.public`. `/help` lists commands
 **New to the hardware side? Start with
 [docs/hardware/first-node.md](docs/hardware/first-node.md)** — shopping
 list, wiring table, flashing, first contact, and the modem contract for
-writing your own firmware in any language.
+writing your own firmware in any language. Building something handheld?
+[docs/hardware/handheld.md](docs/hardware/handheld.md) prices three tiers,
+from a $20 leashed node to a standalone radio with mic, speaker, and
+screen.
 
 ```bash
 cargo install espup && espup install   # Xtensa Rust toolchain, once
