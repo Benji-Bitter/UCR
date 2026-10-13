@@ -330,8 +330,15 @@ fn real_start(
     let mut link_tasks: Vec<JoinHandle<()>> = Vec::new();
 
     // LAN broadcast — zero-config discovery on the local network segment.
-    let udp = UdpBroadcastTransport::bind(udp_port).map_err(short_err)?;
-    mux.add(Arc::new(udp));
+    // Socket setup + mux forwarder spawn need the tokio reactor; tauri
+    // commands run on plain threads, so enter the runtime explicitly.
+    let udp = state
+        .rt
+        .block_on(async { UdpBroadcastTransport::bind(udp_port) })
+        .map_err(short_err)?;
+    state.rt.block_on(async {
+        mux.add(Arc::new(udp));
+    });
 
     // TCP listener — remote peers dial in from anywhere reachable.
     let listener = state
@@ -373,7 +380,10 @@ fn real_start(
     if let Some(path) = serial_path.as_deref().filter(|p| !p.trim().is_empty()) {
         let t = ucr_transport::serial::SerialTransport::open(path, serial_baud, MAX_PACKET_SIZE)
             .map_err(short_err)?;
-        mux.add(Arc::new(t));
+        let mux = mux.clone();
+        state.rt.block_on(async move {
+            mux.add(Arc::new(t));
+        });
     }
 
     let pos = lat.zip(lon).map(|(la, lo)| CoarsePos::new(la, lo, 8_000));
