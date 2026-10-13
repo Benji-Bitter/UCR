@@ -11,7 +11,8 @@ shopping-list line changes.
 
 **Part links** point at the manufacturer's page or a supplier search —
 they're starting points, not affiliate links; buy wherever your region
-ships cheapest.
+ships cheapest. **Wiring:** every product's schematic and pin breakout is
+in [`schematics.md`](schematics.md).
 
 ## The software map — what runs on what
 
