@@ -1,12 +1,30 @@
-```text
+<div align="center">
+
+<pre>
 ██    ██  ██████  ██████
 ██    ██ ██       ██   ██
 ██    ██ ██       ██████
 ██    ██ ██       ██   ██
  ██████   ██████  ██   ██
-```
+</pre>
 
-**Universal Citizens Radio** — open digital radio for everyone.
+<h3>universal citizens radio</h3>
+
+<p><em>open, decentralised, hardware-independent digital radio<br>
+no servers &middot; no accounts &middot; no internet required</em></p>
+
+<p>
+<a href="https://github.com/Benji-Bitter/UCR/actions/workflows/ci.yml"><img src="https://github.com/Benji-Bitter/UCR/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+<a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-black?style=flat-square" alt="Apache-2.0"></a>
+<a href="#requirements"><img src="https://img.shields.io/badge/rust-%3E%3D1.81-black?style=flat-square&logo=rust&logoColor=white" alt="rust >= 1.81"></a>
+<a href="docs/hardware/devices.md"><img src="https://img.shields.io/badge/lora-sx1262-black?style=flat-square" alt="lora sx1262"></a>
+<a href="crates/ucr-protocol"><img src="https://img.shields.io/badge/wire--format-no__std-black?style=flat-square" alt="no_std wire format"></a>
+<a href="docs/hardware/handheld.md"><img src="https://img.shields.io/badge/handheld-tiers-black?style=flat-square" alt="handheld tiers"></a>
+<a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-black?style=flat-square" alt="PRs welcome"></a>
+<a href="https://github.com/Benji-Bitter/UCR/stargazers"><img src="https://img.shields.io/github/stars/Benji-Bitter/UCR?style=flat-square&color=black&labelColor=black" alt="stars"></a>
+</p>
+
+</div>
 
 UCR is an open, decentralised, hardware-independent digital radio
 communication platform. Compatible devices exchange signed and encrypted
