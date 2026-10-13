@@ -1,4 +1,12 @@
-# UCR: Universal Citizens Radio
+```text
+██    ██  ██████  ██████
+██    ██ ██       ██   ██
+██    ██ ██       ██████
+██    ██ ██       ██   ██
+ ██████   ██████  ██   ██
+```
+
+**Universal Citizens Radio** — open digital radio for everyone.
 
 UCR is an open, decentralised, hardware-independent digital radio
 communication platform. Compatible devices exchange signed and encrypted
@@ -166,6 +174,11 @@ In `ucr-node`, bare text goes to `ucr.public`. `/help` lists commands
 
 ## Firmware (ESP32-S3 + SX1262)
 
+**New to the hardware side? Start with
+[docs/hardware/first-node.md](docs/hardware/first-node.md)** — shopping
+list, wiring table, flashing, first contact, and the modem contract for
+writing your own firmware in any language.
+
 ```bash
 cargo install espup && espup install   # Xtensa Rust toolchain, once
 cd firmware/ucr-modem
@@ -176,7 +189,7 @@ cargo check --features tx-enable
 
 Wire the SX1262 per `firmware/ucr-modem/README.md` (pin table + SPI map),
 then flash with `cargo espflash flash --release --features tx-enable`
-after completing the regulatory checklist in `docs/hardware/reference.md`.
+after completing the regulatory checklist in `docs/hardware/regulatory.md`.
 
 Host-to-modem serial framing (`[0x55 0xAA] [u16 len LE] [payload] [crc8]`)
 is shared byte-for-byte between `ucr-transport` and the firmware codec.

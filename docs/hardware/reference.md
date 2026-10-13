@@ -34,8 +34,9 @@ pin map, and flashing.
 
 Implemented and documented in `docs/protocol/serial.md`:
 `[0x55 0xAA] [u16 len LE] [payload] [crc8]` both directions; downstream
-payloads append `rssi_i16_le || snr_i8 || 0xA5`. No open-time handshake —
-the modem is stateless.
+payloads append `rssi_i16_le || snr_i8 || 0xA5`. A stateless `UCRPING` →
+`UCRMODEM` handshake lets hosts autodetect the modem — see
+`docs/hardware/first-node.md` for the bring-up walkthrough.
 
 ## Radio bring-up checklist
 

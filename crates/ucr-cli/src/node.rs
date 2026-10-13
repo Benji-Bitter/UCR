@@ -182,6 +182,19 @@ async fn main() {
 
     let default_channel =
         node.join_channel(&cli.channel, ChannelCategory::General, Scope::Regional);
+    println!(
+        "{}",
+        [
+            "██    ██  ██████  ██████",
+            "██    ██ ██       ██   ██",
+            "██    ██ ██       ██████",
+            "██    ██ ██       ██   ██",
+            " ██████   ██████  ██   ██",
+            "",
+            "universal citizens radio — node online",
+        ]
+        .join("\n")
+    );
     println!("node id: {}", node.node_id().to_hex());
     println!("callsign: {}", node.callsign());
     println!("channel: {} ({})", cli.channel, default_channel.short());

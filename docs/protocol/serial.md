@@ -22,6 +22,24 @@ framing; only the payload differs.
 A frame failing sync, length, or CRC is dropped and the receiver resyncs at
 the next byte. There is no escaping and no length-extension mechanism.
 
+## Control frames: identify yourself
+
+One payload is special — a serial-side handshake that a modem answers
+locally and **never transmits over RF**:
+
+- `UCRPING` (7 bytes: `55 43 52 50 49 4E 47`) — host probes "are you a UCR
+  modem?"
+- reply payload: `UCRMODEM <info>` — e.g. `UCRMODEM ucr-modem/0.1 esp32-sx1262`.
+  Free-form ASCII after the prefix; firmware name and radio parameters are
+  the convention.
+
+These bytes cannot alias a real UCR packet (a wire packet's second byte is
+the protocol version, `0x01`, not `'C'`). The handshake is stateless — no
+connection is opened, and a modem must answer even in receive-only builds
+since the probe is a serial conversation, not an RF transmission. This is
+what powers `detect_hardware` / autodetect in the desktop app: a port that
+answers is marked a real UCR modem, everything else is listed unprobed.
+
 ## Host → modem: transmit request
 
 `payload` = one raw UCR wire-format packet (`docs/protocol/wire-format.md`)

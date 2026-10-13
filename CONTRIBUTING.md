@@ -25,8 +25,10 @@ committing; `cargo clippy --workspace` should stay clean.
 - Node runtime/app API: `crates/ucr-core`
 - RF medium: `crates/ucr-simulator`
 - Docs: `docs/` — keep in sync with behaviour changes
-
-## Rules of the road
+- Radio firmware: `firmware/ucr-modem` (ESP32-S3 + SX1262) — the bring-up
+  walkthrough and modem contract are in `docs/hardware/first-node.md`.
+  First-on-air validation, board pin maps (Heltec, T-Beam), and ports to
+  other radios are all high-value contributions.
 
 1. **The simulator is the testbed.** New protocol behaviour gets a
    `crates/ucr-core/tests/mesh.rs` scenario. Don't weaken the medium's
