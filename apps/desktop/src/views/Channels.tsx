@@ -1,15 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { api, ChannelDto, NodeInfoDto, StoredMsg, UcrEvent, eventKind, eventBody, onUcrEvent } from "../api";
 import { VOICE_CODEC_ADPCM, VoiceRx, VoiceTx } from "../audio";
+import type { StatsDto } from "../api";
 
 export default function Channels({
   me,
   events,
   infos,
+  link,
 }: {
   me: number;
   events: (UcrEvent & { at: number })[];
   infos: NodeInfoDto[];
+  link: StatsDto | null;
 }) {
   const [channels, setChannels] = useState<ChannelDto[]>([]);
   const [active, setActive] = useState("ucr.public");
@@ -45,10 +48,16 @@ export default function Channels({
 
   const send = async () => {
     if (!text.trim()) return;
-    await api.joinChannel(me, active);
-    await api.sendChannelText(me, active, text.trim());
-    setText("");
-    setTimeout(() => void refresh(), 400);
+    setMicErr("");
+    try {
+      await api.joinChannel(me, active);
+      await api.sendChannelText(me, active, text.trim());
+      setText("");
+      setTimeout(() => void refresh(), 400);
+    } catch (e) {
+      // e.g. "packet too large" — text must fit the link mtu on RF links
+      setMicErr(`tx: ${String(e)}`);
+    }
   };
 
   // ---- voice: subscribe to VoiceFrame events for the active channel ----
@@ -161,18 +170,29 @@ export default function Channels({
       <section className="flex min-w-0 flex-1 flex-col rounded border border-line bg-panel">
         {/* voice first — a channel is a frequency, hold to transmit */}
         <div className="flex flex-wrap items-center gap-3 border-b border-line px-3 py-2">
-          <button
-            onPointerDown={() => void pttDown()}
-            onPointerUp={pttUp}
-            onPointerLeave={() => ptt && pttUp()}
-            onPointerCancel={pttUp}
-            onContextMenu={(e) => e.preventDefault()}
-            className={`touch-none select-none px-4 py-2 font-bold uppercase tracking-wider ${
-              ptt ? "inv" : "border border-line hover:bg-fg hover:text-ink"
-            }`}
-          >
-            {ptt ? "● tx — release to end" : "[ hold to talk ]"}
-          </button>
+          {/* ADPCM needs ~32kbit/s and ~460B frames — honest gate: a LoRa
+              link (1.75kbit/s, 222B) can't carry it. Codec2 voice is the
+              firmware path (see ROADMAP). */}
+          {link && (link.link_bitrate < 16_000 || link.link_mtu < 464) ? (
+            <div className="text-dim">
+              [ voice gated ] — {link.link_name} {link.link_bitrate}bps / mtu{" "}
+              {link.link_mtu} can't carry adpcm; codec2 voice lands with the
+              sx1262 firmware
+            </div>
+          ) : (
+            <button
+              onPointerDown={() => void pttDown()}
+              onPointerUp={pttUp}
+              onPointerLeave={() => ptt && pttUp()}
+              onPointerCancel={pttUp}
+              onContextMenu={(e) => e.preventDefault()}
+              className={`touch-none select-none px-4 py-2 font-bold uppercase tracking-wider ${
+                ptt ? "inv" : "border border-line hover:bg-fg hover:text-ink"
+              }`}
+            >
+              {ptt ? "● tx — release to end" : "[ hold to talk ]"}
+            </button>
+          )}
           <div className="text-dim">
             {talker ? (
               <span className="text-fg">◉ {talker} on the air</span>

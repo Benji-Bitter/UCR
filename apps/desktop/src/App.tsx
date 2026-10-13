@@ -189,6 +189,7 @@ export default function App() {
             )}
             {stats && (
               <span className="ml-auto text-dim">
+                {stats.link_name} {stats.link_bitrate}bps · mtu {stats.link_mtu} ·
                 tx {stats.medium_tx} · rx {stats.medium_delivered}
                 {mode === "sim" && (
                   <>
@@ -357,7 +358,7 @@ export default function App() {
                   onSetEnabled={(i, en) => void api.simSetEnabled(i, en)}
                 />
               )}
-              {view === "channels" && <Channels me={me} events={myEvents} infos={infos} />}
+              {view === "channels" && <Channels me={me} events={myEvents} infos={infos} link={stats} />}
               {view === "direct" && <Direct me={me} events={events} infos={infos} topo={topo} />}
               {view === "groups" && <Groups me={me} events={myEvents} infos={infos} topo={topo} />}
               {view === "contacts" && <Contacts me={me} events={myEvents} infos={infos} />}

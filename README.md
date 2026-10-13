@@ -28,8 +28,10 @@ for the real xtensa target. See [ROADMAP.md](ROADMAP.md).
 - **Packet voice (push-to-talk).** Channels carry voice, not just text:
   hold to transmit sends signed IMA-ADPCM frames (8kHz mono, ~32kbit/s)
   flooded to every listener. Real-time by design: loss is skipped, never
-  replayed. Codec ids are registered (`ucr-protocol::payload::voice_codecs`)
-  so Codec2 for narrowband RF slots in without breaking older nodes.
+  replayed. ADPCM needs broadband links (LAN/TCP); on LoRa the link budget
+  gates it off and Codec2 voice is the modem-firmware path. Codec ids are
+  registered (`ucr-protocol::payload::voice_codecs`) so new codecs slot in
+  without breaking older nodes.
 - **Public channels** for scoped broadcast text
   (`ucr.public`, marine, road, community, custom).
 - **Encrypted DMs** with authenticated delivery acknowledgements.
@@ -45,6 +47,13 @@ for the real xtensa target. See [ROADMAP.md](ROADMAP.md).
 - **Real transports.** UDP subnet broadcast for zero-config LAN meshing,
   TCP gateways for point links across networks, and USB serial for the
   SX1262 modem. A mux transport lets one node ride all of them at once.
+- **Built for the SX1262 link budget.** Wire packets on RF links are capped
+  at 222 bytes — one LoRa frame — and the node measures real signed-packet
+  overhead before sending. Long channel text splits APRS-style into
+  multiple frames, oversized payloads fail with `TooLarge` instead of
+  dying mid-air, and beacon pacing is airtime-aware: at SF9 (~1.75kbit/s)
+  discovery beacons pace to ~37s so a node never eats the channel. The
+  UI shows the governing link's profile, bitrate, and MTU live.
 - **CLI tools**: `ucr-sim` scenario runner and `ucr-node` interactive
   headless node over real transports.
 - **Desktop app** on Tauri 2 with a live ASCII globe network view

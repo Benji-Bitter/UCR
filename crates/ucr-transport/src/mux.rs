@@ -118,9 +118,16 @@ impl Transport for MuxTransport {
     }
 
     fn profile_id(&self) -> u8 {
+        // The slowest member governs pacing: if a LoRa modem is attached,
+        // airtime budgeting must follow its bitrate, not the LAN's.
         self.members
             .lock()
-            .first()
+            .iter()
+            .min_by_key(|t| {
+                ucr_protocol::profile::profile_by_id(t.profile_id())
+                    .map(|p| p.bitrate)
+                    .unwrap_or(u32::MAX)
+            })
             .map(|t| t.profile_id())
             .unwrap_or(profile_ids::TCP)
     }

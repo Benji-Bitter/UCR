@@ -141,7 +141,7 @@ async fn main() {
         match ucr_transport::serial::SerialTransport::open(
             path,
             cli.baud,
-            ucr_protocol::MAX_PACKET_SIZE,
+            ucr_protocol::profile::RF_LORA_MTU,
         ) {
             Ok(t) => {
                 eprintln!("serial modem on {path} @ {} baud", cli.baud);

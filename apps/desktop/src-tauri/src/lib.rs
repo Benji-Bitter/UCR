@@ -20,7 +20,7 @@ use ucr_protocol::payload::EmergencyCategory;
 use ucr_protocol::station::{CoarsePos, StationClass};
 use ucr_protocol::{ChannelId, GroupId, NodeId, MAX_PACKET_SIZE};
 use ucr_simulator::{Pos, SimConfig, SimWorld};
-use ucr_transport::{MuxTransport, TcpTransport, UdpBroadcastTransport};
+use ucr_transport::{MuxTransport, TcpTransport, Transport, UdpBroadcastTransport};
 
 // ---------------------------------------------------------------------------
 // State
@@ -97,6 +97,21 @@ struct StatsDto {
     medium_dropped_halfduplex: u64,
     medium_dropped_blocked: u64,
     airtime_ms: u64,
+    /// Governing link: smallest MTU + slowest profile across the mux —
+    /// the link every packet must fit and the rate that paces airtime.
+    link_mtu: usize,
+    link_bitrate: u32,
+    link_name: String,
+}
+
+fn link_profile(mux: &MuxTransport) -> (usize, u32, String) {
+    let p = ucr_protocol::profile::profile_by_id(mux.profile_id());
+    (
+        mux.mtu(),
+        p.as_ref().map(|p| p.bitrate).unwrap_or(0),
+        p.map(|p| p.name.to_lowercase())
+            .unwrap_or_else(|| "unknown".into()),
+    )
 }
 
 #[derive(Clone, Serialize)]
@@ -271,6 +286,7 @@ fn sim_topology(state: State<'_, AppState>) -> Result<Vec<NodeVisDto>, String> {
 fn sim_stats(state: State<'_, AppState>) -> Result<StatsDto, String> {
     if let Some(sim) = state.sim.lock().as_ref() {
         let s = sim.world.stats();
+        let p = ucr_protocol::profile::profile_by_id(ucr_protocol::profile::profile_ids::SIM);
         return Ok(StatsDto {
             medium_tx: s.tx_scheduled,
             medium_delivered: s.delivered,
@@ -279,10 +295,16 @@ fn sim_stats(state: State<'_, AppState>) -> Result<StatsDto, String> {
             medium_dropped_halfduplex: s.dropped_halfduplex,
             medium_dropped_blocked: s.dropped_blocked,
             airtime_ms: s.airtime_ms,
+            link_mtu: p.as_ref().map(|p| p.mtu).unwrap_or(400),
+            link_bitrate: p.as_ref().map(|p| p.bitrate).unwrap_or(0),
+            link_name: p
+                .map(|p| p.name.to_lowercase())
+                .unwrap_or_else(|| "sim".into()),
         });
     }
     if let Some(real) = state.real.lock().as_ref() {
         let (tx, rx) = real.mux.counters();
+        let (link_mtu, link_bitrate, link_name) = link_profile(&real.mux);
         return Ok(StatsDto {
             medium_tx: tx,
             medium_delivered: rx,
@@ -291,6 +313,9 @@ fn sim_stats(state: State<'_, AppState>) -> Result<StatsDto, String> {
             medium_dropped_halfduplex: 0,
             medium_dropped_blocked: 0,
             airtime_ms: 0,
+            link_mtu,
+            link_bitrate,
+            link_name,
         });
     }
     Err("no node running".into())
@@ -378,8 +403,12 @@ fn real_start(
 
     // Serial modem — an attached SX1262-style radio accessory.
     if let Some(path) = serial_path.as_deref().filter(|p| !p.trim().is_empty()) {
-        let t = ucr_transport::serial::SerialTransport::open(path, serial_baud, MAX_PACKET_SIZE)
-            .map_err(short_err)?;
+        let t = ucr_transport::serial::SerialTransport::open(
+            path,
+            serial_baud,
+            ucr_protocol::profile::RF_LORA_MTU,
+        )
+        .map_err(short_err)?;
         let mux = mux.clone();
         state.rt.block_on(async move {
             mux.add(Arc::new(t));

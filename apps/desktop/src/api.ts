@@ -49,6 +49,10 @@ export interface StatsDto {
   medium_dropped_halfduplex: number;
   medium_dropped_blocked: number;
   airtime_ms: number;
+  /** Governing link across the mux: smallest MTU + slowest profile. */
+  link_mtu: number;
+  link_bitrate: number;
+  link_name: string;
 }
 
 export interface NodeInfoDto {

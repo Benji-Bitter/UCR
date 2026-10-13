@@ -116,6 +116,9 @@ export class FallbackSim {
     medium_dropped_halfduplex: 0,
     medium_dropped_blocked: 0,
     airtime_ms: 0,
+    link_mtu: 400,
+    link_bitrate: 5500,
+    link_name: "simulator",
   };
   private msgSeq = 1;
   private pktSeq = 1;
@@ -174,6 +177,7 @@ export class FallbackSim {
       medium_tx: 0, medium_delivered: 0, medium_dropped_loss: 0,
       medium_dropped_collision: 0, medium_dropped_halfduplex: 0,
       medium_dropped_blocked: 0, airtime_ms: 0,
+      link_mtu: 400, link_bitrate: 5500, link_name: "simulator",
     };
     return Promise.resolve();
   }

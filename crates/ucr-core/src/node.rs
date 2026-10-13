@@ -16,6 +16,7 @@ use ucr_protocol::channel::ChannelCategory;
 use ucr_protocol::header::{Priority, Scope};
 use ucr_protocol::ids::{ChannelId, GroupId, MsgId, NodeId};
 use ucr_protocol::payload::*;
+use ucr_protocol::profile::{profile_by_id, Modulation};
 use ucr_protocol::station::{caps, CoarsePos, StationClass};
 use ucr_protocol::{decode, ChannelInfo, Packet, TonePattern};
 use ucr_routing::{DropReason, RouteAction, Router};
@@ -371,18 +372,23 @@ impl Node {
         ch.id
     }
 
-    /// Send a text message to a channel. Returns the msg id.
+    /// Send a text message to a channel. Returns the first msg id.
     /// Channel traffic is a signed, scoped flood — readable by anyone in
     /// range of any relay; never encrypted.
+    ///
+    /// Text longer than fits one wire frame on the governing link is split
+    /// across multiple packets (APRS-style chunking): each chunk becomes its
+    /// own flood packet and history line, since UCR never reassembles.
     pub fn send_channel_text(&self, channel: &ChannelId, text: &str) -> Result<MsgId, SendError> {
         let ch = self
             .channels()
             .into_iter()
             .find(|c| &c.id == channel)
             .ok_or(SendError::UnknownChannel)?;
-        let msg_id = self.next_msg_id();
-        let now = now_ms();
-        let pkt = {
+        // Payload budget = mtu minus real wire overhead (header + signature
+        // + appdata meta), measured by encoding a probe frame — on LoRa a
+        // signed packet carries ~170B of overhead, leaving ~50B of text.
+        let probe = {
             let mut r = self.inner.router.lock();
             r.originate_broadcast(
                 ch.scope,
@@ -392,18 +398,62 @@ impl Node {
                         name: ch.name.clone(),
                         category: ch.category,
                         scope: ch.scope,
-                        msg_id,
-                        text: text.chars().take(ucr_protocol::TEXT_MAX).collect(),
+                        msg_id: 0,
+                        text: String::new(),
                     }),
                 }),
                 Priority::Normal,
             )
         };
-        self.transmit_signed(&pkt)?;
-        self.record_outbound(None, None, &pkt, Some(msg_id));
-        // Our own message appears in history immediately.
+        let mtu = self.inner.transport.mtu();
+        let signer = self.inner.identity.packet_signer();
+        let budget = mtu
+            .saturating_sub(probe.encode(Some(&signer)).map(|w| w.len()).unwrap_or(0) + 8)
+            .min(ucr_protocol::TEXT_MAX);
+        let text: &str = {
+            let mut end = text.len().min(4096);
+            while !text.is_char_boundary(end) {
+                end -= 1;
+            }
+            &text[..end]
+        };
+        let mut chunks: Vec<String> = Vec::new();
+        let mut rest = text;
+        while !rest.is_empty() {
+            let mut n = rest.len().min(budget);
+            while !rest.is_char_boundary(n) {
+                n -= 1;
+            }
+            chunks.push(rest[..n].to_string());
+            rest = &rest[n..];
+        }
+        let first_id = self.next_msg_id();
+        let now = now_ms();
+        for (i, chunk) in chunks.iter().enumerate() {
+            let msg_id = if i == 0 { first_id } else { self.next_msg_id() };
+            let pkt = {
+                let mut r = self.inner.router.lock();
+                r.originate_broadcast(
+                    ch.scope,
+                    Payload::Data(DataMsg {
+                        app: AppData::ChannelText(ChannelText {
+                            channel: ch.id,
+                            name: ch.name.clone(),
+                            category: ch.category,
+                            scope: ch.scope,
+                            msg_id,
+                            text: chunk.clone(),
+                        }),
+                    }),
+                    Priority::Normal,
+                )
+            };
+            self.transmit_signed(&pkt)?;
+            self.record_outbound(None, None, &pkt, Some(msg_id));
+        }
+        // Our own message appears in history immediately (as one line).
         let _ = self.inner.store.put_message(&StoredMessage {
-            msg_id,
+            msg_id: first_id,
             peer: self.node_id(),
             channel: Some(*channel),
             direction: Direction::Outbound,
@@ -411,7 +461,7 @@ impl Node {
             at_ms: now,
             delivery: DeliveryState::Sent,
         });
-        Ok(msg_id)
+        Ok(first_id)
     }
 
     /// Push-to-talk voice: flood one encoded frame to a channel. Real-time
@@ -433,6 +483,37 @@ impl Node {
             .into_iter()
             .find(|c| &c.id == channel)
             .ok_or(SendError::UnknownChannel)?;
+        // Voice fans out whole to every link — measure real wire overhead
+        // with an empty-frame probe and refuse what the air can't carry.
+        let probe = {
+            let mut r = self.inner.router.lock();
+            r.originate_broadcast(
+                ch.scope,
+                Payload::Data(DataMsg {
+                    app: AppData::ChannelVoice(ChannelVoice {
+                        channel: ch.id,
+                        name: ch.name.clone(),
+                        scope: ch.scope,
+                        codec,
+                        tx_id,
+                        seq,
+                        last,
+                        data: Vec::new(),
+                    }),
+                }),
+                Priority::Control,
+            )
+        };
+        let mtu = self.inner.transport.mtu();
+        let signer = self.inner.identity.packet_signer();
+        let budget =
+            mtu.saturating_sub(probe.encode(Some(&signer)).map(|w| w.len()).unwrap_or(0) + 8);
+        if data.len() > budget {
+            return Err(SendError::TooLarge {
+                size: data.len(),
+                mtu: budget,
+            });
+        }
         let msg_id = self.next_msg_id();
         let pkt = {
             let mut r = self.inner.router.lock();
@@ -1314,6 +1395,15 @@ impl Node {
                     cfg2.beacon_base_ms * 2
                 } else {
                     cfg2.beacon_base_ms
+                };
+                // Airtime floor on real RF links: a ~160B beacon at SF9
+                // (1.75kbit/s) costs ~750ms on air, so beacons can never
+                // exceed ~2% of the medium — discovery runs at ~37s, not 3s.
+                let base = match profile_by_id(node.inner.transport.profile_id()) {
+                    Some(p) if matches!(p.modulation, Modulation::LoRa | Modulation::Gfsk) => {
+                        base.max(p.airtime_ms(160) * 50)
+                    }
+                    _ => base,
                 };
                 let jitter = rand::thread_rng().gen_range(0..base / 4 + 1);
                 let wait = (base + jitter).min(240_000);

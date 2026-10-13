@@ -169,7 +169,7 @@ fn drain_frames(buf: &mut Vec<u8>, tx: &mpsc::Sender<(Vec<u8>, RxMeta)>) {
 #[async_trait]
 impl Transport for SerialTransport {
     async fn send(&self, frame: &[u8]) -> Result<(), TransportError> {
-        if frame.len() > self.mtu.min(MAX_FRAME) {
+        if frame.len() > self.mtu() {
             return Err(TransportError::TooLarge(frame.len()));
         }
         if !self.alive.load(Ordering::Relaxed) {
@@ -195,7 +195,11 @@ impl Transport for SerialTransport {
     }
 
     fn mtu(&self) -> usize {
-        self.mtu.min(MAX_FRAME)
+        // Serial links carry a UCR modem: a wire packet must fit one RF
+        // frame, so the LoRa FIFO budget caps whatever the caller asked for.
+        self.mtu
+            .min(MAX_FRAME)
+            .min(ucr_protocol::profile::RF_LORA_MTU)
     }
 
     fn profile_id(&self) -> u8 {

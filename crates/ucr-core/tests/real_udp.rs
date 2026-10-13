@@ -140,6 +140,82 @@ async fn udp_voice_frames_flood() {
     b.stop();
 }
 
+// ---------------------------------------------------------------------------
+// LoRa constraints: the SX1262 world is 222-byte frames at ~1.75kbit/s.
+// These tests prove the node respects that link budget on real transports.
+// ---------------------------------------------------------------------------
+
+/// A stubbed narrowband link — reports the LoRa profile/MTU and captures
+/// every outbound wire frame so the test can measure what would hit the air.
+#[derive(Debug, Default)]
+struct LoraCapture {
+    sent: std::sync::Mutex<Vec<Vec<u8>>>,
+}
+
+#[async_trait::async_trait]
+impl ucr_transport::Transport for LoraCapture {
+    async fn send(&self, frame: &[u8]) -> Result<(), ucr_transport::TransportError> {
+        self.sent.lock().unwrap().push(frame.to_vec());
+        Ok(())
+    }
+    async fn recv(
+        &self,
+    ) -> Result<(Vec<u8>, ucr_transport::RxMeta), ucr_transport::TransportError> {
+        std::future::pending::<()>().await;
+        unreachable!()
+    }
+    fn mtu(&self) -> usize {
+        ucr_protocol::profile::RF_LORA_MTU
+    }
+    fn profile_id(&self) -> u8 {
+        ucr_protocol::profile::profile_ids::EU_LORA
+    }
+    fn kind(&self) -> ucr_transport::TransportKind {
+        ucr_transport::TransportKind::Serial
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn lora_mtu_chunks_text_and_rejects_fat_voice() {
+    use ucr_protocol::channel::ChannelCategory;
+    use ucr_protocol::header::Scope;
+
+    let link = Arc::new(LoraCapture::default());
+    let node = NodeBuilder::new()
+        .config(test_cfg("LORA-A"))
+        .pid_seed(31)
+        .start(link.clone())
+        .await
+        .expect("node");
+
+    let ch = node.join_channel("ucr-general", ChannelCategory::General, Scope::Local);
+    // ~460 chars — can't fit one 222B LoRa frame, must split into chunks.
+    let text = "packet radio over lora — ".repeat(20);
+    node.send_channel_text(&ch, &text).expect("chunked send");
+    let frames = link.sent.lock().unwrap().clone();
+    assert!(
+        frames.len() >= 2,
+        "long text should chunk onto lora, got {} frames",
+        frames.len()
+    );
+    assert!(
+        frames
+            .iter()
+            .all(|f| f.len() <= ucr_protocol::profile::RF_LORA_MTU),
+        "every wire frame must fit one lora rf frame"
+    );
+
+    // A voice frame larger than the rf budget is refused at send time —
+    // better a clean error than a frame the modem can't transmit.
+    let fat = vec![0u8; ucr_protocol::profile::RF_LORA_MTU - 20];
+    let err = node
+        .send_channel_voice(&ch, 1, 1, 0, false, &fat)
+        .unwrap_err();
+    assert!(format!("{err}").contains("too large"), "err was {err}");
+
+    node.stop();
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn udp_channel_flood() {
     let (a, b) = udp_pair().await;

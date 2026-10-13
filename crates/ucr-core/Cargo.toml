@@ -25,6 +25,7 @@ parking_lot = { workspace = true }
 anyhow = { workspace = true }
 
 [dev-dependencies]
+async-trait = { workspace = true }
 ucr-simulator = { path = "../ucr-simulator" }
 ucr-transport = { path = "../ucr-transport" }
 ucr-morse = { path = "../ucr-morse" }

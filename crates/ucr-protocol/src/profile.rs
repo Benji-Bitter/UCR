@@ -192,3 +192,15 @@ pub fn builtin_profiles() -> alloc::vec::Vec<RadioProfile> {
 pub const MAX_PACKET_SIZE_SIM: usize = 400;
 /// MTU used by TCP transports.
 pub const MAX_PACKET_SIZE_TCP: usize = 512;
+/// Largest wire packet one SX1262 LoRa frame can carry.
+///
+/// The chip's FIFO is 255 bytes; 222 matches the common regional payload
+/// cap (EU868/US915) and leaves margin for preamble/header overhead in
+/// future wire-format revisions. A UCR packet never fragments across RF
+/// frames, so this is the hard ceiling on LoRa links.
+pub const RF_LORA_MTU: usize = 222;
+
+/// Look up a built-in profile by id.
+pub fn profile_by_id(id: u8) -> Option<RadioProfile> {
+    builtin_profiles().into_iter().find(|p| p.id == id)
+}
