@@ -17,6 +17,10 @@ The radio module must be an **SX1262** (or SX1268/SX1261 — same driver).
 Buy the variant matching your region's ISM band: 433, 868, or 915 MHz
 modules are not interchangeable — the antenna and matching network differ.
 
+Got a different board? **[devices.md](devices.md)** is the catalog —
+what flashes unmodified, what needs a pin-map edit, what needs a HAL or
+driver port, and how to contribute your board.
+
 Building something you carry? **[handheld.md](handheld.md)** prices out
 three handheld tiers — a $20 leashed node, a self-locating field unit,
 and a full standalone radio with mic, speaker, and screen.

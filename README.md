@@ -180,7 +180,8 @@ list, wiring table, flashing, first contact, and the modem contract for
 writing your own firmware in any language. Building something handheld?
 [docs/hardware/handheld.md](docs/hardware/handheld.md) prices three tiers,
 from a $20 leashed node to a standalone radio with mic, speaker, and
-screen.
+screen. A different board? [docs/hardware/devices.md](docs/hardware/devices.md)
+catalogs what drops in, what needs a pin map, and what needs a port.
 
 ```bash
 cargo install espup && espup install   # Xtensa Rust toolchain, once
