@@ -1,22 +1,26 @@
-//! UCR desktop backend — embeds the real node stack plus a deterministic
-//! simulated RF world so the full app is usable with no radio hardware.
+//! UCR desktop backend — embeds the real node stack, real IP transports,
+//! and a deterministic simulated RF world for development.
 //!
 //! Every Tauri command operates on real `ucr-core` nodes; the simulator is
 //! a transport like any other, so what the UI shows is what the protocol
-//! actually does.
+//! actually does. In real mode the node runs on a `MuxTransport` combining
+//! UDP LAN broadcast, TCP gateways, and (optionally) a serial modem.
 
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use parking_lot::Mutex;
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
+use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
 
 use ucr_core::{Node, NodeBuilder, NodeConfig, NodeEvent};
 use ucr_protocol::payload::EmergencyCategory;
-use ucr_protocol::station::StationClass;
-use ucr_protocol::{ChannelId, GroupId, NodeId};
+use ucr_protocol::station::{CoarsePos, StationClass};
+use ucr_protocol::{ChannelId, GroupId, NodeId, MAX_PACKET_SIZE};
 use ucr_simulator::{Pos, SimConfig, SimWorld};
+use ucr_transport::{MuxTransport, TcpTransport, UdpBroadcastTransport};
 
 // ---------------------------------------------------------------------------
 // State
@@ -29,8 +33,19 @@ struct SimHandle {
     event_tasks: Vec<JoinHandle<()>>,
 }
 
+/// A live node on real transports (LAN broadcast + TCP gateways + serial).
+struct RealHandle {
+    node: Node,
+    mux: Arc<MuxTransport>,
+    /// Announced coarse position (city-level, ~8 km uncertainty radius).
+    pos: Option<CoarsePos>,
+    link_tasks: Vec<JoinHandle<()>>,
+    event_task: Option<JoinHandle<()>>,
+}
+
 struct AppState {
     sim: Mutex<Option<SimHandle>>,
+    real: Mutex<Option<RealHandle>>,
     /// Dedicated tokio runtime for node tasks — the node stack is async.
     rt: tokio::runtime::Runtime,
 }
@@ -48,6 +63,9 @@ struct NodeVisDto {
     node_id: String,
     callsign: String,
     heard: Vec<(usize, f32)>,
+    /// Announced coarse position — present only when the node publishes one.
+    lat: Option<f64>,
+    lon: Option<f64>,
 }
 
 #[derive(Serialize)]
@@ -99,10 +117,17 @@ fn short_err<E: std::fmt::Debug>(e: E) -> String {
 }
 
 fn with_node<R>(st: &AppState, idx: usize, f: impl FnOnce(&Node) -> R) -> Result<R, String> {
-    let sim = st.sim.lock();
-    let sim = sim.as_ref().ok_or("simulator not running")?;
-    let node = sim.nodes.get(idx).ok_or("no such node")?;
-    Ok(f(node))
+    if let Some(sim) = st.sim.lock().as_ref() {
+        if let Some(node) = sim.nodes.get(idx) {
+            return Ok(f(node));
+        }
+    }
+    if idx == 0 {
+        if let Some(real) = st.real.lock().as_ref() {
+            return Ok(f(&real.node));
+        }
+    }
+    Err("no node running".into())
 }
 
 // ---------------------------------------------------------------------------
@@ -117,6 +142,7 @@ fn sim_start(
     seed: u64,
 ) -> Result<(), String> {
     sim_stop(state.clone());
+    real_stop(state.clone());
     let n = count.clamp(2, 12);
     let cfg = SimConfig {
         seed,
@@ -183,46 +209,230 @@ fn sim_stop(state: State<'_, AppState>) {
 
 #[tauri::command]
 fn sim_topology(state: State<'_, AppState>) -> Result<Vec<NodeVisDto>, String> {
-    let sim = state.sim.lock();
-    let sim = sim.as_ref().ok_or("simulator not running")?;
-    let vis = sim.world.node_vis();
-    Ok(vis
-        .iter()
-        .enumerate()
-        .map(|(i, v)| NodeVisDto {
-            id: v.id,
-            x: v.pos.x,
-            y: v.pos.y,
-            enabled: v.enabled,
-            node_id: sim.nodes[i].node_id().to_hex(),
-            callsign: sim.nodes[i].callsign(),
-            heard: v.heard_rssi.clone(),
-        })
-        .collect())
+    if let Some(sim) = state.sim.lock().as_ref() {
+        let vis = sim.world.node_vis();
+        return Ok(vis
+            .iter()
+            .enumerate()
+            .map(|(i, v)| NodeVisDto {
+                id: v.id,
+                x: v.pos.x,
+                y: v.pos.y,
+                enabled: v.enabled,
+                node_id: sim.nodes[i].node_id().to_hex(),
+                callsign: sim.nodes[i].callsign(),
+                heard: v.heard_rssi.clone(),
+                lat: None,
+                lon: None,
+            })
+            .collect());
+    }
+    // Real mode: self + the neighbor table — a live view of peers the node
+    // has actually heard over the wire, positions only where announced.
+    if let Some(real) = state.real.lock().as_ref() {
+        let n = &real.node;
+        let neighbors = n.neighbors();
+        let rssi = |v: f32| if v.is_nan() { -90.0 } else { v };
+        let mut out = Vec::with_capacity(neighbors.len() + 1);
+        out.push(NodeVisDto {
+            id: 0,
+            x: 0.0,
+            y: 0.0,
+            enabled: true,
+            node_id: n.node_id().to_hex(),
+            callsign: n.callsign(),
+            heard: neighbors
+                .iter()
+                .enumerate()
+                .map(|(i, nb)| (i + 1, rssi(nb.rssi_ewma)))
+                .collect(),
+            lat: real.pos.map(|p| p.lat()),
+            lon: real.pos.map(|p| p.lon()),
+        });
+        for (i, nb) in neighbors.iter().enumerate() {
+            out.push(NodeVisDto {
+                id: i + 1,
+                x: 0.0,
+                y: 0.0,
+                enabled: true,
+                node_id: nb.node_id.to_hex(),
+                callsign: nb.callsign.clone(),
+                heard: vec![(0, rssi(nb.rssi_ewma))],
+                lat: nb.pos.map(|p| p.lat()),
+                lon: nb.pos.map(|p| p.lon()),
+            });
+        }
+        return Ok(out);
+    }
+    Err("no node running".into())
 }
 
 #[tauri::command]
 fn sim_stats(state: State<'_, AppState>) -> Result<StatsDto, String> {
-    let sim = state.sim.lock();
-    let sim = sim.as_ref().ok_or("simulator not running")?;
-    let s = sim.world.stats();
-    Ok(StatsDto {
-        medium_tx: s.tx_scheduled,
-        medium_delivered: s.delivered,
-        medium_dropped_loss: s.dropped_loss,
-        medium_dropped_collision: s.dropped_collision,
-        medium_dropped_halfduplex: s.dropped_halfduplex,
-        medium_dropped_blocked: s.dropped_blocked,
-        airtime_ms: s.airtime_ms,
-    })
+    if let Some(sim) = state.sim.lock().as_ref() {
+        let s = sim.world.stats();
+        return Ok(StatsDto {
+            medium_tx: s.tx_scheduled,
+            medium_delivered: s.delivered,
+            medium_dropped_loss: s.dropped_loss,
+            medium_dropped_collision: s.dropped_collision,
+            medium_dropped_halfduplex: s.dropped_halfduplex,
+            medium_dropped_blocked: s.dropped_blocked,
+            airtime_ms: s.airtime_ms,
+        });
+    }
+    if let Some(real) = state.real.lock().as_ref() {
+        let (tx, rx) = real.mux.counters();
+        return Ok(StatsDto {
+            medium_tx: tx,
+            medium_delivered: rx,
+            medium_dropped_loss: 0,
+            medium_dropped_collision: 0,
+            medium_dropped_halfduplex: 0,
+            medium_dropped_blocked: 0,
+            airtime_ms: 0,
+        });
+    }
+    Err("no node running".into())
 }
 
 #[tauri::command]
 fn sim_set_enabled(state: State<'_, AppState>, idx: usize, enabled: bool) -> Result<(), String> {
     let sim = state.sim.lock();
-    let sim = sim.as_ref().ok_or("simulator not running")?;
+    let sim = sim.as_ref().ok_or("no simulator running")?;
     sim.world.set_enabled(idx, enabled);
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Commands — real mode lifecycle (LAN broadcast + TCP gateways + serial)
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+#[allow(clippy::too_many_arguments)] // tauri commands take flat arg lists
+fn real_start(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    callsign: String,
+    desc: String,
+    udp_port: u16,
+    tcp_port: u16,
+    connect: Vec<String>,
+    serial_path: Option<String>,
+    serial_baud: u32,
+    lat: Option<f64>,
+    lon: Option<f64>,
+) -> Result<(), String> {
+    real_stop(state.clone());
+    sim_stop(state.clone());
+
+    let mux = MuxTransport::new();
+    let mut link_tasks: Vec<JoinHandle<()>> = Vec::new();
+
+    // LAN broadcast — zero-config discovery on the local network segment.
+    let udp = UdpBroadcastTransport::bind(udp_port).map_err(short_err)?;
+    mux.add(Arc::new(udp));
+
+    // TCP listener — remote peers dial in from anywhere reachable.
+    let listener = state
+        .rt
+        .block_on(TcpListener::bind(("0.0.0.0", tcp_port)))
+        .map_err(short_err)?;
+    {
+        let mux = mux.clone();
+        link_tasks.push(state.rt.spawn(async move {
+            loop {
+                match TcpTransport::accept(&listener, MAX_PACKET_SIZE).await {
+                    Ok(t) => mux.add(Arc::new(t)),
+                    Err(_) => tokio::time::sleep(std::time::Duration::from_millis(500)).await,
+                }
+            }
+        }));
+    }
+
+    // TCP dial-out — retry until connected or the node is stopped.
+    for addr in connect
+        .iter()
+        .filter_map(|a| a.trim().parse::<SocketAddr>().ok())
+    {
+        let mux = mux.clone();
+        link_tasks.push(state.rt.spawn(async move {
+            loop {
+                match TcpTransport::connect(addr, MAX_PACKET_SIZE).await {
+                    Ok(t) => {
+                        mux.add(Arc::new(t));
+                        break;
+                    }
+                    Err(_) => tokio::time::sleep(std::time::Duration::from_secs(3)).await,
+                }
+            }
+        }));
+    }
+
+    // Serial modem — an attached SX1262-style radio accessory.
+    if let Some(path) = serial_path.as_deref().filter(|p| !p.trim().is_empty()) {
+        let t = ucr_transport::serial::SerialTransport::open(path, serial_baud, MAX_PACKET_SIZE)
+            .map_err(short_err)?;
+        mux.add(Arc::new(t));
+    }
+
+    let pos = lat.zip(lon).map(|(la, lo)| CoarsePos::new(la, lo, 8_000));
+
+    // Persistent store — a real node keeps its identity between launches.
+    let store = app
+        .path()
+        .app_data_dir()
+        .ok()
+        .and_then(|dir| {
+            std::fs::create_dir_all(&dir).ok()?;
+            ucr_storage::Store::open(&dir.join("ucr.redb")).ok()
+        })
+        .unwrap_or_else(|| ucr_storage::Store::in_memory().expect("in-memory store"));
+
+    let node = state
+        .rt
+        .block_on(async {
+            NodeBuilder::new()
+                .config(NodeConfig {
+                    callsign: if callsign.is_empty() {
+                        "UCR-NODE".into()
+                    } else {
+                        callsign
+                    },
+                    desc,
+                    class: StationClass::Individual,
+                    pos,
+                    beacon_base_ms: 3_000,
+                    ..Default::default()
+                })
+                .store(store)
+                .start(mux.clone() as Arc<dyn ucr_transport::Transport>)
+                .await
+        })
+        .map_err(short_err)?;
+
+    *state.real.lock() = Some(RealHandle {
+        node,
+        mux,
+        pos,
+        link_tasks,
+        event_task: None,
+    });
+    Ok(())
+}
+
+#[tauri::command]
+fn real_stop(state: State<'_, AppState>) {
+    if let Some(real) = state.real.lock().take() {
+        real.node.stop();
+        if let Some(t) = real.event_task {
+            t.abort();
+        }
+        for t in real.link_tasks {
+            t.abort();
+        }
+        drop(real.mux); // aborts member forwarders
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -508,27 +718,45 @@ fn node_stats(state: State<'_, AppState>, idx: usize) -> Result<serde_json::Valu
 
 #[tauri::command]
 fn subscribe_events(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
-    let mut sim = state.sim.lock();
-    let sim = sim.as_mut().ok_or("simulator not running")?;
-    if !sim.event_tasks.is_empty() {
-        return Ok(()); // already bridged
-    }
-    for (i, n) in sim.nodes.iter().enumerate() {
-        let mut rx = n.events();
-        let app = app.clone();
-        sim.event_tasks.push(state.rt.spawn(async move {
-            loop {
-                match rx.recv().await {
-                    Ok(event) => {
-                        let _ = app.emit("ucr:event", EventDto { node: i, event });
+    if let Some(sim) = state.sim.lock().as_mut() {
+        if sim.event_tasks.is_empty() {
+            for (i, n) in sim.nodes.iter().enumerate() {
+                let mut rx = n.events();
+                let app = app.clone();
+                sim.event_tasks.push(state.rt.spawn(async move {
+                    loop {
+                        match rx.recv().await {
+                            Ok(event) => {
+                                let _ = app.emit("ucr:event", EventDto { node: i, event });
+                            }
+                            Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                            Err(_) => break,
+                        }
                     }
-                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
-                    Err(_) => break,
-                }
+                }));
             }
-        }));
+        }
+        return Ok(());
     }
-    Ok(())
+    if let Some(real) = state.real.lock().as_mut() {
+        if real.event_task.is_none() {
+            let mut rx = real.node.events();
+            let app = app.clone();
+            real.event_task = Some(state.rt.spawn(async move {
+                loop {
+                    match rx.recv().await {
+                        Ok(event) => {
+                            let _ = app.emit("ucr:event", EventDto { node: 0, event });
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                        Err(_) => break,
+                    }
+                }
+            }));
+        }
+        return Ok(());
+    }
+    Err("no node running".into())
 }
 
 // ---------------------------------------------------------------------------
@@ -562,11 +790,14 @@ pub fn run() {
     tauri::Builder::default()
         .manage(AppState {
             sim: Mutex::new(None),
+            real: Mutex::new(None),
             rt,
         })
         .invoke_handler(tauri::generate_handler![
             sim_start,
             sim_stop,
+            real_start,
+            real_stop,
             sim_topology,
             sim_stats,
             sim_set_enabled,

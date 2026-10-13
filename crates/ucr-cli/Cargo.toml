@@ -19,7 +19,7 @@ path = "src/node.rs"
 ucr-protocol = { path = "../ucr-protocol" }
 ucr-identity = { path = "../ucr-identity" }
 ucr-crypto = { path = "../ucr-crypto" }
-ucr-transport = { path = "../ucr-transport" }
+ucr-transport = { path = "../ucr-transport", features = ["serial"] }
 ucr-routing = { path = "../ucr-routing" }
 ucr-storage = { path = "../ucr-storage" }
 ucr-simulator = { path = "../ucr-simulator" }

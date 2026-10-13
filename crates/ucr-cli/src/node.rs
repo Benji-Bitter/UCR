@@ -1,10 +1,13 @@
-//! `ucr-node` — a headless, interactive UCR node.
+//! `ucr-node` — a headless, interactive UCR node on real transports.
 //!
-//! Connects to a peer over the TCP gateway transport (real transport, real
-//! crypto, real routing) and provides a line-oriented command REPL.
+//! By default it joins the LAN via UDP broadcast (port 4401) — run two
+//! instances on the same network and they find each other. TCP gateways and
+//! a serial modem can be attached on top:
 //!
-//!   ucr-node --callsign ALPHA --listen 0.0.0.0:4400
-//!   ucr-node --callsign BRAVO --connect 192.168.1.20:4400
+//!   ucr-node --callsign ALPHA                          # LAN only
+//!   ucr-node --callsign ALPHA --listen 0.0.0.0:4402    # + inbound TCP
+//!   ucr-node --callsign BRAVO --connect 10.0.0.5:4402  # + dial a peer
+//!   ucr-node --callsign VK2X --serial /dev/ttyUSB0     # + real radio
 //!
 //! Commands (line input):
 //!   <text>                  send to the joined channel (default ucr.public)
@@ -28,11 +31,12 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::net::TcpListener;
 
 use ucr_core::{Node, NodeBuilder, NodeConfig, NodeEvent};
-use ucr_protocol::station::StationClass;
+use ucr_protocol::station::{CoarsePos, StationClass};
 use ucr_protocol::EmergencyCategory;
 use ucr_protocol::{ChannelCategory, ChannelId, NodeId, Scope};
 use ucr_storage::Store;
 use ucr_transport::tcp::TcpTransport;
+use ucr_transport::{MuxTransport, UdpBroadcastTransport, DEFAULT_UDP_PORT};
 
 #[derive(Parser)]
 #[command(name = "ucr-node", version, about = "Headless interactive UCR node")]
@@ -43,12 +47,30 @@ struct Cli {
     /// Node description shown to peers.
     #[arg(long, default_value = "")]
     desc: String,
-    /// Accept one inbound TCP gateway connection on this address.
-    #[arg(long, conflicts_with = "connect")]
-    listen: Option<SocketAddr>,
-    /// Connect to a peer's TCP gateway at this address.
+    /// UDP LAN broadcast port — every node on the LAN shares it.
+    #[arg(long, default_value_t = DEFAULT_UDP_PORT)]
+    udp_port: u16,
+    /// Disable the LAN broadcast transport.
     #[arg(long)]
-    connect: Option<SocketAddr>,
+    no_udp: bool,
+    /// Accept inbound TCP gateway connections on this address.
+    #[arg(long)]
+    listen: Option<SocketAddr>,
+    /// Dial a peer's TCP gateway (repeatable).
+    #[arg(long)]
+    connect: Vec<SocketAddr>,
+    /// Serial port of a UCR modem accessory (e.g. /dev/ttyUSB0).
+    #[arg(long)]
+    serial: Option<String>,
+    /// Serial baud rate for the modem link.
+    #[arg(long, default_value_t = 115_200)]
+    baud: u32,
+    /// Coarse position to announce (city-level is plenty).
+    #[arg(long)]
+    lat: Option<f64>,
+    /// Coarse position to announce.
+    #[arg(long)]
+    lon: Option<f64>,
     /// Persistent store directory (redb). Omit for an in-memory node.
     #[arg(long)]
     data_dir: Option<PathBuf>,
@@ -63,22 +85,23 @@ struct Cli {
 #[tokio::main(flavor = "multi_thread", worker_threads = 4)]
 async fn main() {
     let cli = Cli::parse();
-    if cli.listen.is_none() && cli.connect.is_none() {
-        eprintln!("error: provide --listen <addr> or --connect <addr>");
-        std::process::exit(2);
-    }
 
-    let transport = if let Some(addr) = cli.connect {
-        eprintln!("connecting to {addr}…");
-        match TcpTransport::connect(addr, ucr_protocol::MAX_PACKET_SIZE).await {
-            Ok(t) => t,
-            Err(e) => {
-                eprintln!("connect failed: {e}");
-                std::process::exit(1);
+    // One node, however many links: LAN broadcast + TCP gateways + serial
+    // all ride the same mux, so every wire frame reaches every wire.
+    let mux = MuxTransport::new();
+    // peers may attach after startup, so track configuration, not link count
+    let mut configured = false;
+    if !cli.no_udp {
+        match UdpBroadcastTransport::bind(cli.udp_port) {
+            Ok(t) => {
+                eprintln!("lan broadcast on udp/{}", cli.udp_port);
+                mux.add(Arc::new(t));
+                configured = true;
             }
+            Err(e) => eprintln!("udp bind :{} failed: {e}", cli.udp_port),
         }
-    } else {
-        let addr = cli.listen.unwrap();
+    }
+    if let Some(addr) = cli.listen {
         let listener = match TcpListener::bind(addr).await {
             Ok(l) => l,
             Err(e) => {
@@ -86,22 +109,64 @@ async fn main() {
                 std::process::exit(1);
             }
         };
-        eprintln!("listening on {addr} — waiting for one peer…");
-        match TcpTransport::accept(&listener, ucr_protocol::MAX_PACKET_SIZE).await {
-            Ok(t) => t,
-            Err(e) => {
-                eprintln!("accept failed: {e}");
-                std::process::exit(1);
+        eprintln!("listening for tcp gateways on {addr}");
+        configured = true;
+        let mux = mux.clone();
+        tokio::spawn(async move {
+            loop {
+                match TcpTransport::accept(&listener, ucr_protocol::MAX_PACKET_SIZE).await {
+                    Ok(t) => mux.add(Arc::new(t)),
+                    Err(_) => tokio::time::sleep(std::time::Duration::from_millis(500)).await,
+                }
             }
+        });
+    }
+    for addr in cli.connect.clone() {
+        eprintln!("dialing {addr}…");
+        configured = true;
+        let mux = mux.clone();
+        tokio::spawn(async move {
+            loop {
+                match TcpTransport::connect(addr, ucr_protocol::MAX_PACKET_SIZE).await {
+                    Ok(t) => {
+                        mux.add(Arc::new(t));
+                        break;
+                    }
+                    Err(_) => tokio::time::sleep(std::time::Duration::from_secs(3)).await,
+                }
+            }
+        });
+    }
+    if let Some(path) = &cli.serial {
+        match ucr_transport::serial::SerialTransport::open(
+            path,
+            cli.baud,
+            ucr_protocol::MAX_PACKET_SIZE,
+        ) {
+            Ok(t) => {
+                eprintln!("serial modem on {path} @ {} baud", cli.baud);
+                mux.add(Arc::new(t));
+                configured = true;
+            }
+            Err(e) => eprintln!("serial {path} failed: {e}"),
         }
-    };
-    eprintln!("transport up: {:?}", transport);
+    }
+    if !configured {
+        eprintln!("error: no transports up — enable udp, --listen, --connect, or --serial");
+        std::process::exit(2);
+    }
+
+    let pos = cli
+        .lat
+        .zip(cli.lon)
+        .map(|(la, lo)| CoarsePos::new(la, lo, 8_000));
 
     let mut builder = NodeBuilder::new().config(NodeConfig {
         callsign: cli.callsign.chars().take(12).collect(),
         desc: cli.desc,
         class: StationClass::Individual,
         relay: !cli.no_relay,
+        pos,
         ..Default::default()
     });
     if let Some(dir) = &cli.data_dir {
@@ -111,7 +176,7 @@ async fn main() {
     }
 
     let node = builder
-        .start(Arc::new(transport))
+        .start(mux as Arc<dyn ucr_transport::Transport>)
         .await
         .expect("node start");
 

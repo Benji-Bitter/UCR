@@ -14,7 +14,9 @@
 
 ## Phase 2 — Usable application
 
-- [ ] Tauri desktop app (all sections + live sim visualisation)
+- [x] Tauri desktop app (all sections, ASCII globe, live/sim modes)
+- [x] Real transports in-app: UDP LAN broadcast, TCP gateways, serial
+      modem via `MuxTransport`; `ucr-node` meshes zero-config on a LAN
 - [ ] Persistent profiles/identity management UX
 - [ ] Voice/tone announcements polish; morse training tools in UI
 - [ ] Onboarding: channel presets, contact verification flow (SAS emoji)

@@ -9,10 +9,11 @@ The primary purpose is general public communication, private messaging,
 group communication, and emergency preparedness.
 
 **Status: early development.** The protocol core, mesh router, E2E
-cryptography, deterministic RF simulator, and CLI tools are implemented
-and tested. The desktop app runs the real node stack over the simulator,
-and the ESP32-S3 + SX1262 reference modem firmware compiles for the real
-xtensa target. See [ROADMAP.md](ROADMAP.md).
+cryptography, real IP transports (UDP LAN broadcast and TCP gateways), a
+serial modem transport, a deterministic RF simulator, and CLI tools are
+implemented and tested. The desktop app runs live nodes over LAN/TCP or
+the simulator, and the ESP32-S3 + SX1262 reference modem firmware compiles
+for the real xtensa target. See [ROADMAP.md](ROADMAP.md).
 
 ## What works today
 
@@ -36,8 +37,11 @@ xtensa target. See [ROADMAP.md](ROADMAP.md).
   loss, shadowing, airtime, half-duplex, collisions, listen-before-talk,
   duty cycle, mobility, obstacles, and partitions. The whole protocol
   stack runs unmodified on it.
+- **Real transports.** UDP subnet broadcast for zero-config LAN meshing,
+  TCP gateways for point links across networks, and USB serial for the
+  SX1262 modem. A mux transport lets one node ride all of them at once.
 - **CLI tools**: `ucr-sim` scenario runner and `ucr-node` interactive
-  headless node over the TCP gateway transport.
+  headless node over real transports.
 - **Desktop app** on Tauri 2 with a live ASCII globe network view
   (drag to rotate, scroll to zoom, search places/nodes), channels, DMs,
   groups, contacts, emergency, Morse, and a full event log.
@@ -85,9 +89,18 @@ pnpm tauri build              # release bundle (.app/.msi/deb)
 pnpm dev                      # http://localhost:1420
 ```
 
-Press `[ run ]`. No radio hardware needed. The simulator spins up a line
-of nodes (count, spacing, and seed are configurable), they discover each
-other, and every view is live:
+Press `[ go online ]`. That starts a real node: UDP broadcast on the LAN
+port you pick (default 4401), a TCP listener for gateways (default 4402),
+an optional dial-out peer (`host:port`), and an optional serial modem
+(`/dev/tty...`). Two instances on the same LAN, or two machines on the
+same network, exchange real UCR packets: beacons, signed floods,
+encrypted DMs. The node's identity persists between launches in the app
+data dir. Your OS may ask to allow the ports once (firewall).
+
+`[ run sim ]` instead spins up the deterministic test world: a line of
+simulated nodes (count, spacing, seed configurable) that discover each
+other and traffic every view. No hardware needed, and it is labelled
+`sim` in the header so the modes are never confused.
 
 - **network** is an ASCII globe built on real Natural Earth coastlines and
   world cities. Drag rotates, scroll zooms, double-click resets, and the
@@ -103,9 +116,24 @@ other, and every view is live:
 # Deterministic scripted scenario over simulated RF:
 cargo run -p ucr-cli --bin ucr-sim -- run --nodes 3 --duration 90 --seed 7
 
-# Two interactive nodes over the TCP gateway transport:
-cargo run -p ucr-cli --bin ucr-node -- --callsign ALPHA --listen 127.0.0.1:4400
-cargo run -p ucr-cli --bin ucr-node -- --callsign BRAVO --connect 127.0.0.1:4400
+# Interactive nodes. With no flags they mesh over LAN broadcast; two
+# machines on the same network find each other with zero config:
+cargo run -p ucr-cli --bin ucr-node -- --callsign ALPHA
+cargo run -p ucr-cli --bin ucr-node -- --callsign BRAVO
+
+# Two nodes on one machine: use a TCP link between them (same-host
+# broadcast sharing varies by OS):
+
+cargo run -p ucr-cli --bin ucr-node -- --callsign ALPHA --listen 0.0.0.0:4402
+cargo run -p ucr-cli --bin ucr-node -- --callsign BRAVO --connect 127.0.0.1:4402 --no-udp
+
+# TCP gateways also link across networks (repeatable --connect):
+
+# A real SX1262 modem on USB serial, plus LAN on the side:
+cargo run -p ucr-cli --bin ucr-node -- --callsign VK2X --serial /dev/ttyUSB0
+
+# Useful flags: --udp-port, --no-udp, --lat/--lon (coarse position to
+# announce), --data-dir (persistent identity), --baud, --no-relay.
 ```
 
 In `ucr-node`, bare text goes to `ucr.public`. `/help` lists commands
@@ -136,7 +164,7 @@ crates/
   ucr-protocol    wire format, profiles, channels (no_std, shared with firmware)
   ucr-identity    Ed25519 identity, NodeId binding, packet sign/verify
   ucr-crypto      X25519 session handshake, ChaCha20-Poly1305 sessions
-  ucr-transport   broadcast-medium transport trait + TCP/serial transports
+  ucr-transport   broadcast-medium transport trait; UDP/TCP/serial + mux
   ucr-routing     neighbour table, link quality, routes, dedup, queue
   ucr-simulator   deterministic RF medium (a real transport, not a mock)
   ucr-storage     redb persistence: contacts, messages, groups, keys

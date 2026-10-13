@@ -23,11 +23,15 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
+pub mod mux;
 #[cfg(feature = "serial")]
 pub mod serial;
 pub mod tcp;
+pub mod udp;
 
+pub use mux::MuxTransport;
 pub use tcp::{TcpTransport, TCP_PROTOCOL_VERSION};
+pub use udp::{UdpBroadcastTransport, DEFAULT_UDP_PORT};
 
 /// Reception metadata reported alongside each received frame.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -72,6 +76,10 @@ pub enum TransportKind {
     Ble,
     /// TCP/IP gateway link.
     Tcp,
+    /// UDP subnet broadcast — the LAN analogue of shouting into the air.
+    Udp,
+    /// Several transports combined behind one face.
+    Mux,
     /// Direct SPI/embedded radio driver (in-firmware).
     Spi,
 }
@@ -83,6 +91,8 @@ impl TransportKind {
             Self::Serial => "USB Serial",
             Self::Ble => "Bluetooth LE",
             Self::Tcp => "TCP Gateway",
+            Self::Udp => "LAN Broadcast",
+            Self::Mux => "Multi-transport",
             Self::Spi => "SPI Radio",
         }
     }

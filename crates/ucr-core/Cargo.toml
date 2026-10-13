@@ -26,5 +26,6 @@ anyhow = { workspace = true }
 
 [dev-dependencies]
 ucr-simulator = { path = "../ucr-simulator" }
+ucr-transport = { path = "../ucr-transport" }
 ucr-morse = { path = "../ucr-morse" }
 tokio = { version = "1", features = ["full", "test-util"] }

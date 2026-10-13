@@ -27,8 +27,8 @@ const GRID: Uint8Array = (() => {
 
 // --- coarse node locations --------------------------------------------
 // Deterministic city assignment per node — city-level only, never precise.
-// [city, country, lat, lon]
-const CITIES: [string, string, number, number][] = [
+// [city, country, lat, lon] — exported for the real-mode position picker
+export const CITIES: [string, string, number, number][] = [
   ["sydney", "australia", -33.9, 151.2],
   ["perth", "australia", -31.9, 115.9],
   ["auckland", "new zealand", -36.8, 174.8],
@@ -120,23 +120,44 @@ const WCITIES: WC[] = WORLD_CITIES.trim()
     return { name, cc, lat, lon, pop: +pop, cap: cap === "1", v: ll2v(lat, lon) };
   });
 
+// Nearest known city to an announced coarse position — pins read like
+// "near tokyo, jp" rather than raw coordinates.
+function placeOf(lat: number, lon: number): [string, string] {
+  let best: WC | null = null;
+  let bd = Infinity;
+  const v = ll2v(lat, lon);
+  for (const c of WCITIES) {
+    const d =
+      (c.v[0] - v[0]) ** 2 + (c.v[1] - v[1]) ** 2 + (c.v[2] - v[2]) ** 2;
+    if (d < bd) {
+      bd = d;
+      best = c;
+    }
+  }
+  if (best && bd < 0.05) return [`near ${best.name}`, best.cc];
+  return [`${lat.toFixed(2)}°`, `${lon.toFixed(2)}°`];
+}
+
 // -----------------------------------------------------------------------
 
 export default function Network({
   topo,
   me,
   onSetEnabled,
+  real = false,
 }: {
   topo: NodeVisDto[];
   me: number;
   onSetEnabled: (idx: number, enabled: boolean) => void;
+  /** real mode — peers aren't ours to disable, positions are announced */
+  real?: boolean;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const wrap = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const view = useRef({
     yaw: -1.9,
-    pitch: -0.45,
+    pitch: 0, // equator loads perfectly horizontal
     zoom: 1,
     drag: false,
     lx: 0,
@@ -162,14 +183,19 @@ export default function Network({
     [],
   );
 
-  // shared jittered-pin position for draw + fly-to
+  // shared pin position for draw + fly-to — announced coarse position wins;
+  // sim nodes get a deterministic city; real nodes without an announced
+  // position get no pin (we don't invent locations)
   const pinLL = useCallback(
-    (t: NodeVisDto[], i: number) => {
-      const c = cityOf(t[i], i);
+    (t: NodeVisDto[], i: number): readonly [number, number] | null => {
+      const n = t[i];
+      if (n.lat != null && n.lon != null) return [n.lat, n.lon];
+      if (real) return null;
+      const c = cityOf(n, i);
       const dupes = t.slice(0, i).filter((o, j) => cityOf(o, j) === c).length;
       return [c[2] + dupes * 2.5, c[3] + dupes * 2.5] as const;
     },
-    [cityOf],
+    [cityOf, real],
   );
 
   const flyTo = (lat: number, lon: number, z: number) => {
@@ -275,10 +301,11 @@ export default function Network({
     ctx.fillText("+", cx - RZ - 10, cy);
     ctx.fillText("+", cx + RZ + 4, cy);
 
-    // ---- node positions (coarse city pins) ----
+    // ---- node positions (coarse pins; null = position unannounced) ----
     const pos = topo.map((_, i) => {
-      const [lat, lon] = pinLL(topo, i);
-      const v = ll2v(lat, lon);
+      const ll = pinLL(topo, i);
+      if (!ll) return null;
+      const v = ll2v(ll[0], ll[1]);
       const [x, y, z] = apply(v);
       return { v, x, y, z };
     });
@@ -289,8 +316,9 @@ export default function Network({
     topo.forEach((n, i) => {
       for (const [peer] of n.heard) {
         if (peer <= i || !topo[peer]) continue; // each pair once
-        const a = pos[i].v;
-        const b = pos[peer].v;
+        if (!pos[i] || !pos[peer]) continue; // both ends need a position
+        const a = pos[i]!.v;
+        const b = pos[peer]!.v;
         const steps = 26;
         for (let s = 0; s <= steps; s++) {
           const p = slerp(a, b, s / steps);
@@ -339,10 +367,13 @@ export default function Network({
     pins.current = [];
     topo.forEach((n, i) => {
       const p = pos[i];
+      if (!p) return; // position unannounced — no pin
       const sx = cx - p.x * RZ;
       const sy = cy - p.y * RZ;
       const front = p.z > 0 && inView(sx, sy);
-      const [city, country] = cityOf(n, i);
+      const [city, country] = n.lat != null
+        ? placeOf(n.lat, n.lon!)
+        : cityOf(n, i);
       if (front) {
         pins.current.push({ i, sx, sy });
         const glyph = !n.enabled ? "x" : i === meI ? "@" : "o";
@@ -503,8 +534,8 @@ export default function Network({
           kind: "node",
           label: `${n.callsign} · ${city}, ${country}`,
           run: () => {
-            const [la, lo] = pinLL(topoRef.current, i);
-            flyTo(la, lo, 3);
+            const ll = pinLL(topoRef.current, i);
+            if (ll) flyTo(ll[0], ll[1], 3);
             setSelected(i);
           },
         });
@@ -563,7 +594,13 @@ export default function Network({
   };
 
   const sel = selected !== null ? topo[selected] : null;
-  const selCity = sel ? cityOf(sel, selected!) : null;
+  const selCity = sel
+    ? sel.lat != null
+      ? placeOf(sel.lat, sel.lon!)
+      : real
+        ? null
+        : cityOf(sel, selected!)
+    : null;
   // estimated RF range from node spacing (medium uses 1.6x spacing)
   const rangeM =
     topo.length > 1
@@ -577,7 +614,8 @@ export default function Network({
           <canvas ref={ref} className="absolute inset-0 h-full w-full" />
         </div>
         <div className="pointer-events-none absolute left-3 top-2 text-dim">
-          ucr://net — drag to rotate · scroll to zoom · dblclick reset · coarse city-level positions
+          ucr://net — drag to rotate · scroll to zoom · dblclick reset ·{" "}
+          {real ? "peers heard on the wire · city-level announced positions" : "coarse city-level positions"}
         </div>
         <form className="absolute left-3 top-8" onSubmit={find}>
           <div className="flex items-center gap-2">
@@ -622,7 +660,11 @@ export default function Network({
         {sel ? (
           <>
             <span className="text-fg">[{sel.callsign}]</span>
-            <span>{selCity ? `${selCity[0]}, ${selCity[1]}` : "?"}</span>
+            <span>
+              {selCity
+                ? `${selCity[0]}, ${selCity[1]}`
+                : "position unannounced"}
+            </span>
             <span>{sel.node_id.slice(0, 16)}</span>
             <span>{sel.enabled ? "radio on" : "radio off"}</span>
             {rangeM > 0 && <span>range ~{rangeM}m</span>}
@@ -630,16 +672,22 @@ export default function Network({
               heard:{" "}
               {sel.heard.length
                 ? sel.heard
-                    .map(([p, r]) => `${topo[p]?.callsign ?? `n${p}`} ${Math.round(r)}dBm`)
+                    .map(([p, r]) =>
+                      r <= -90
+                        ? `${topo[p]?.callsign ?? `n${p}`} ip`
+                        : `${topo[p]?.callsign ?? `n${p}`} ${Math.round(r)}dBm`,
+                    )
                     .join(" · ")
                 : "none"}
             </span>
-            <button
-              onClick={() => onSetEnabled(sel.id, !sel.enabled)}
+            {real ? null : (
+              <button
+                onClick={() => onSetEnabled(sel.id, !sel.enabled)}
               className="ml-auto border border-line bg-panel-2 px-3 py-1 text-fg hover:bg-fg hover:text-ink"
-            >
-              {sel.enabled ? "[ disable ]" : "[ enable ]"}
-            </button>
+              >
+                {sel.enabled ? "[ disable ]" : "[ enable ]"}
+              </button>
+            )}
           </>
         ) : (
           <span>click a pin — dotted trails are heard peer links · pulses show traffic flow</span>

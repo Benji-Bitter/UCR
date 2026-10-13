@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, IS_TAURI, NodeInfoDto, NodeVisDto, StatsDto, UcrEvent, eventKind, onUcrEvent } from "./api";
+import { CITIES } from "./views/Network";
 import Channels from "./views/Channels";
 import Contacts from "./views/Contacts";
 import Direct from "./views/Direct";
@@ -24,7 +25,8 @@ const NAV: [View, string][] = [
 
 export default function App() {
   const [view, setView] = useState<View>("network");
-  const [running, setRunning] = useState(false);
+  const [mode, setMode] = useState<"idle" | "sim" | "real">("idle");
+  const running = mode !== "idle";
   const [topo, setTopo] = useState<NodeVisDto[]>([]);
   const [stats, setStats] = useState<StatsDto | null>(null);
   const [me, setMe] = useState(0);
@@ -33,6 +35,15 @@ export default function App() {
   const [nodeCount, setNodeCount] = useState(4);
   const [seed, setSeed] = useState(7);
   const [spacing, setSpacing] = useState(300);
+  // real-mode config
+  const [form, setForm] = useState<"real" | "sim">(IS_TAURI ? "real" : "sim");
+  const [callsign, setCallsign] = useState("");
+  const [udpPort, setUdpPort] = useState(4401);
+  const [tcpPort, setTcpPort] = useState(4402);
+  const [connect, setConnect] = useState("");
+  const [serialPath, setSerialPath] = useState("");
+  const [posIdx, setPosIdx] = useState("");
+  const [startErr, setStartErr] = useState("");
   const eventsRef = useRef(events);
   eventsRef.current = events;
 
@@ -46,9 +57,22 @@ export default function App() {
         if (!live) return;
         setTopo(t);
         setStats(s);
-        // Refresh node infos when count changes.
-        const inf = await Promise.all(t.map((_, i) => api.nodeInfo(i)));
-        if (live) setInfos(inf);
+        // Refresh node infos — real-mode topo includes remote peers, which
+        // aren't local nodes; fall back to their announced callsign/id.
+        const inf = await Promise.all(
+          t.map((_, i) => api.nodeInfo(i).catch(() => null)),
+        );
+        if (live)
+          setInfos(
+            inf.map(
+              (x, i) =>
+                x ?? {
+                  node_id: t[i].node_id,
+                  callsign: t[i].callsign,
+                  pubkey: "",
+                },
+            ),
+          );
       } catch {
         /* sim may be stopping */
       }
@@ -73,20 +97,53 @@ export default function App() {
   }, [running]);
 
   const start = useCallback(async () => {
-    await api.simStart(nodeCount, spacing, seed);
-    await api.subscribeEvents();
-    setEvents([]);
-    setMe(0);
-    setRunning(true);
+    setStartErr("");
+    try {
+      await api.simStart(nodeCount, spacing, seed);
+      await api.subscribeEvents();
+      setEvents([]);
+      setMe(0);
+      setMode("sim");
+    } catch (e) {
+      setStartErr(String(e));
+    }
   }, [nodeCount, spacing, seed]);
 
+  const startReal = useCallback(async () => {
+    setStartErr("");
+    try {
+      const ci = posIdx === "" ? -1 : Number(posIdx);
+      await api.realStart({
+        callsign,
+        desc: "",
+        udpPort,
+        tcpPort,
+        connect: connect
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
+        serialPath: serialPath || undefined,
+        serialBaud: 115200,
+        lat: ci >= 0 ? CITIES[ci][2] : undefined,
+        lon: ci >= 0 ? CITIES[ci][3] : undefined,
+      });
+      await api.subscribeEvents();
+      setEvents([]);
+      setMe(0);
+      setMode("real");
+    } catch (e) {
+      setStartErr(String(e));
+    }
+  }, [callsign, udpPort, tcpPort, connect, serialPath, posIdx]);
+
   const stop = useCallback(async () => {
-    await api.simStop();
-    setRunning(false);
+    if (mode === "real") await api.realStop();
+    else await api.simStop();
+    setMode("idle");
     setTopo([]);
     setStats(null);
     setInfos([]);
-  }, []);
+  }, [mode]);
 
   const myEvents = events.filter((e) => e.node === me);
 
@@ -102,23 +159,44 @@ export default function App() {
         <div className="mx-2 h-5 w-px bg-line" />
         {running ? (
           <>
-            <span className="text-dim">node</span>
-            <select
-              className="border border-line bg-panel px-2 py-1"
-              value={me}
-              onChange={(e) => setMe(Number(e.target.value))}
+            <span
+              className={`border border-line px-1 font-bold ${
+                mode === "real" ? "bg-fg text-ink" : "text-dim"
+              }`}
             >
-              {topo.map((n, i) => (
-                <option key={n.id} value={i}>
-                  {infos[i]?.callsign ?? `n${i}`} · {n.node_id.slice(0, 8)}
-                </option>
-              ))}
-            </select>
+              {mode === "real" ? "live" : "sim"}
+            </span>
+            {mode === "sim" && (
+              <>
+                <span className="text-dim">node</span>
+                <select
+                  className="border border-line bg-panel px-2 py-1"
+                  value={me}
+                  onChange={(e) => setMe(Number(e.target.value))}
+                >
+                  {topo.map((n, i) => (
+                    <option key={n.id} value={i}>
+                      {infos[i]?.callsign ?? n.callsign} · {n.node_id.slice(0, 8)}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
+            {mode === "real" && (
+              <span className="text-dim">
+                {topo[0]?.callsign ?? "…"} · {topo[0]?.node_id.slice(0, 8) ?? ""}
+              </span>
+            )}
             {stats && (
               <span className="ml-auto text-dim">
-                tx {stats.medium_tx} · rx {stats.medium_delivered} · drop{" "}
-                {stats.medium_dropped_loss + stats.medium_dropped_collision + stats.medium_dropped_halfduplex} · air{" "}
-                {(stats.airtime_ms / 1000).toFixed(0)}s
+                tx {stats.medium_tx} · rx {stats.medium_delivered}
+                {mode === "sim" && (
+                  <>
+                    {" "}· drop{" "}
+                    {stats.medium_dropped_loss + stats.medium_dropped_collision + stats.medium_dropped_halfduplex} ·
+                    air {(stats.airtime_ms / 1000).toFixed(0)}s
+                  </>
+                )}
               </span>
             )}
             <button
@@ -128,6 +206,73 @@ export default function App() {
               [ stop ]
             </button>
           </>
+        ) : form === "real" && IS_TAURI ? (
+          <form
+            className="flex flex-wrap items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void startReal();
+            }}
+          >
+            <span className="text-dim">callsign</span>
+            <input
+              value={callsign}
+              onChange={(e) => setCallsign(e.target.value)}
+              placeholder="VK2X"
+              className="w-20 border border-line bg-panel px-2 py-1 placeholder:text-dim"
+            />
+            <span className="text-dim">udp</span>
+            <input
+              type="number"
+              value={udpPort}
+              onChange={(e) => setUdpPort(Number(e.target.value))}
+              className="w-16 border border-line bg-panel px-2 py-1"
+            />
+            <span className="text-dim">tcp</span>
+            <input
+              type="number"
+              value={tcpPort}
+              onChange={(e) => setTcpPort(Number(e.target.value))}
+              className="w-16 border border-line bg-panel px-2 py-1"
+            />
+            <span className="text-dim">peer</span>
+            <input
+              value={connect}
+              onChange={(e) => setConnect(e.target.value)}
+              placeholder="host:4402"
+              className="w-28 border border-line bg-panel px-2 py-1 placeholder:text-dim"
+            />
+            <span className="text-dim">serial</span>
+            <input
+              value={serialPath}
+              onChange={(e) => setSerialPath(e.target.value)}
+              placeholder="/dev/tty…"
+              className="w-24 border border-line bg-panel px-2 py-1 placeholder:text-dim"
+            />
+            <select
+              value={posIdx}
+              onChange={(e) => setPosIdx(e.target.value)}
+              className="border border-line bg-panel px-2 py-1"
+            >
+              <option value="">no position</option>
+              {CITIES.map((c, i) => (
+                <option key={c[0]} value={i}>
+                  {c[0]}, {c[1]}
+                </option>
+              ))}
+            </select>
+            <button className="inv px-3 py-1 font-bold uppercase tracking-wider hover:opacity-80">
+              [ go online ]
+            </button>
+            <button
+              type="button"
+              onClick={() => setForm("sim")}
+              className="text-dim underline-offset-2 hover:text-fg"
+            >
+              ·sim
+            </button>
+            {startErr && <span className="text-fg">err: {startErr}</span>}
+          </form>
         ) : (
           <form
             className="flex items-center gap-2"
@@ -163,8 +308,18 @@ export default function App() {
               className="w-16 border border-line bg-panel px-2 py-1"
             />
             <button className="inv px-3 py-1 font-bold uppercase tracking-wider hover:opacity-80">
-              [ run ]
+              [ run sim ]
             </button>
+            {IS_TAURI && (
+              <button
+                type="button"
+                onClick={() => setForm("real")}
+                className="text-dim underline-offset-2 hover:text-fg"
+              >
+                ·real
+              </button>
+            )}
+            {startErr && <span className="text-fg">err: {startErr}</span>}
           </form>
         )}
       </header>
@@ -192,7 +347,14 @@ export default function App() {
             <EmptyState />
           ) : (
             <>
-              {view === "network" && <Network topo={topo} me={me} onSetEnabled={(i, en) => void api.simSetEnabled(i, en)} />}
+              {view === "network" && (
+                <Network
+                  topo={topo}
+                  me={me}
+                  real={mode === "real"}
+                  onSetEnabled={(i, en) => void api.simSetEnabled(i, en)}
+                />
+              )}
               {view === "channels" && <Channels me={me} events={myEvents} infos={infos} />}
               {view === "direct" && <Direct me={me} events={events} infos={infos} topo={topo} />}
               {view === "groups" && <Groups me={me} events={myEvents} infos={infos} topo={topo} />}
@@ -218,8 +380,8 @@ export function EmptyState() {
 ██    ██ ██       ██   ██
  ██████   ██████  ██   ██`}
       </pre>
-      <div>// configure mesh parameters &gt; run — no radio hardware needed</div>
-      <div className="mt-2 text-xs">everything here runs the real protocol stack, end to end</div>
+      <div>// [ go online ] puts a real node on lan / tcp / serial — actual ucr packets on the wire</div>
+      <div className="mt-2 text-xs">[ run sim ] spins up the deterministic rf test world instead</div>
     </div>
   );
 }

@@ -18,6 +18,9 @@ export interface NodeVisDto {
   node_id: string;
   callsign: string;
   heard: [number, number][];
+  /** Announced coarse position (real nodes); null/undefined = unannounced. */
+  lat?: number | null;
+  lon?: number | null;
 }
 
 export interface NeighborDto {
@@ -117,6 +120,26 @@ export const api = {
   simStats: () => (fb ? fb.simStats() : invoke<StatsDto>("sim_stats")),
   simSetEnabled: (idx: number, enabled: boolean) =>
     fb ? fb.simSetEnabled(idx, enabled) : invoke<void>("sim_set_enabled", { idx, enabled }),
+
+  // ---- real mode -----------------------------------------------------------
+  // Bring a real node online: UDP LAN broadcast + TCP gateways + optional
+  // serial modem. Real sockets need the native app; the browser build can
+  // only run the simulated mesh.
+  realStart: (o: {
+    callsign: string;
+    desc: string;
+    udpPort: number;
+    tcpPort: number;
+    connect: string[];
+    serialPath?: string;
+    serialBaud: number;
+    lat?: number;
+    lon?: number;
+  }) =>
+    fb
+      ? Promise.reject(new Error("real networking needs the desktop app"))
+      : invoke<void>("real_start", o),
+  realStop: () => (fb ? fb.simStop() : invoke<void>("real_stop")),
 
   nodeInfo: (idx: number) =>
     fb ? fb.nodeInfo(idx) : invoke<NodeInfoDto>("node_info", { idx }),

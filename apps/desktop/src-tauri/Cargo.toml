@@ -23,7 +23,7 @@ ucr-identity = { path = "../../../crates/ucr-identity" }
 ucr-simulator = { path = "../../../crates/ucr-simulator" }
 ucr-storage = { path = "../../../crates/ucr-storage" }
 ucr-morse = { path = "../../../crates/ucr-morse" }
-ucr-transport = { path = "../../../crates/ucr-transport" }
+ucr-transport = { path = "../../../crates/ucr-transport", features = ["serial"] }
 ucr-routing = { path = "../../../crates/ucr-routing" }
 tokio = { workspace = true }
 serde = { workspace = true }
