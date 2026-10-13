@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UCR — universal citizens radio</title>
+<meta name="description" content="Open, decentralised, hardware-independent digital radio. Multi-hop LoRa mesh, signed packets, encrypted DMs — no servers, no accounts, no internet.">
+<style>
+  :root {
+    --ink: #000000;
+    --panel: #060606;
+    --panel2: #0e0e0e;
+    --line: #242424;
+    --fg: #ffffff;
+    --dim: #7f7f7f;
+  }
+  * { border-radius: 0 !important; box-sizing: border-box; }
+  html, body { margin: 0; overflow-x: hidden; }
+  body {
+    background: var(--ink);
+    color: var(--fg);
+    font: 13px/1.6 "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    letter-spacing: .01em;
+  }
+  ::selection { background: var(--fg); color: var(--ink); }
+  a { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--line); }
+  a:hover { background: var(--fg); color: var(--ink); border-bottom-color: var(--fg); }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 16px; }
+
+  /* ---- app chrome ---- */
+  header.app {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+    border-bottom: 1px solid var(--line); padding: 8px 16px;
+  }
+  .brand { font-size: 15px; font-weight: 700; letter-spacing: .25em; }
+  .brand small { font-weight: 400; letter-spacing: 0; color: var(--dim); }
+  .badge { border: 1px solid var(--line); padding: 1px 6px; color: var(--dim); font-size: 11px; }
+  .badge.live { background: var(--fg); color: var(--ink); font-weight: 700; }
+  .btn {
+    border: 1px solid var(--line); background: var(--panel); color: var(--fg);
+    padding: 4px 12px; font: inherit; text-transform: uppercase;
+    letter-spacing: .08em; cursor: pointer; display: inline-block;
+  }
+  .btn:hover { background: var(--fg); color: var(--ink); border-bottom: 1px solid var(--line); }
+  .spacer { flex: 1; }
+
+  section { padding: 28px 0; border-bottom: 1px solid var(--line); }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .25em; color: var(--dim); font-weight: 400; margin: 0 0 16px; }
+  h2::before { content: "// "; }
+
+  .logo { font-size: clamp(9px, 2.6vw, 15px); line-height: 1.15; text-align: center; margin: 36px 0 8px; }
+  .tagline { text-align: center; color: var(--dim); margin-bottom: 8px; }
+  .cta { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin: 20px 0 30px; }
+
+  /* ---- fake terminal / app window ---- */
+  .window { border: 1px solid var(--line); background: var(--panel); }
+  .window .bar {
+    display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid var(--line); padding: 6px 10px; color: var(--dim); font-size: 12px;
+    flex-wrap: wrap;
+  }
+  .term { padding: 14px; font-size: 12.5px; min-height: 240px; white-space: pre-wrap; }
+  .term .d { color: var(--dim); }
+  .caret { display: inline-block; width: 8px; height: 14px; background: var(--fg); vertical-align: -2px; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* ---- channel view mock ---- */
+  .chan { padding: 10px 14px; }
+  .chan .topic { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: .15em; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+  .msg { padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+  .msg .who { color: var(--dim); }
+  .msg .meta { color: var(--dim); font-size: 11px; float: right; }
+  .onair { color: var(--fg); }
+  .ptt { margin-top: 12px; text-align: center; }
+
+  /* ---- tables ---- */
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  td, th { border: 1px solid var(--line); padding: 6px 10px; text-align: left; vertical-align: top; }
+  th { color: var(--dim); font-weight: 400; text-transform: uppercase; font-size: 11px; letter-spacing: .1em; }
+  td .d { color: var(--dim); }
+
+  ul.feats { list-style: none; padding: 0; margin: 0; }
+  ul.feats li { padding: 7px 0; border-bottom: 1px solid var(--line); }
+  ul.feats li:last-child { border-bottom: 0; }
+  ul.feats b { font-weight: 400; }
+  ul.feats li::before { content: "▸ "; color: var(--dim); }
+
+  pre.code { border: 1px solid var(--line); background: var(--panel); padding: 14px; overflow-x: auto; font-size: 12.5px; }
+  pre.code .c { color: var(--dim); }
+  .copy { float: right; }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; }
+  @media (max-width: 640px) { .cols { grid-template-columns: 1fr; } }
+
+  footer { padding: 28px 0 60px; color: var(--dim); font-size: 12px; }
+  .warn { color: var(--dim); font-size: 11.5px; }
+</style>
+</head>
+<body>
+
+<header class="app">
+  <span class="brand">UCR://</span>
+  <span class="badge live">live</span>
+  <span class="badge">[ gps ]</span>
+  <span class="badge">[ lock ]</span>
+  <span class="spacer"></span>
+  <a class="btn" href="https://github.com/Benji-Bitter/UCR">[ github ]</a>
+  <a class="btn" href="https://github.com/Benji-Bitter/UCR#start-here">[ docs ]</a>
+</header>
+
+<div class="wrap">
+
+<pre class="logo">
+██    ██  ██████  ██████
+██    ██ ██       ██   ██
+██    ██ ██       ██████
+██    ██ ██       ██   ██
+ ██████   ██████  ██   ██
+</pre>
+
+<p class="tagline">universal citizens radio — open, decentralised, hardware-independent digital radio<br>
+no servers · no accounts · no internet required</p>
+
+<div class="cta">
+  <a class="btn" href="https://github.com/Benji-Bitter/UCR#quickstart">[ run it ]</a>
+  <a class="btn" href="https://github.com/Benji-Bitter/UCR/blob/main/docs/hardware/products.md">[ build one ]</a>
+  <a class="btn" href="https://github.com/Benji-Bitter/UCR/blob/main/docs/protocol/wire-format.md">[ protocol ]</a>
+</div>
+
+<!-- ============================================================ -->
+<section>
+  <h2>what it is</h2>
+  <p>A real radio protocol stack, not a website mockup. Devices running UCR exchange
+  <b>Ed25519-signed packets</b> over whatever wire exists — LoRa silicon (ESP32-S3 + SX1262),
+  LAN broadcast, TCP gateways, or serial — and route them through an intelligent multi-hop
+  mesh. Every message is signed at the origin and verified at every hop. DMs are
+  end-to-end encrypted (X25519 + ChaCha20-Poly1305); relays forward ciphertext they
+  can't read.</p>
+  <p class="d">Channels for public talk · encrypted DMs · private groups · emergency
+  broadcasts that bypass your PIN lock · digital morse · push-to-talk voice where the
+  link budget allows · a deterministic RF simulator for development.</p>
+</section>
+
+<!-- ============================================================ -->
+<section>
+  <h2>a real node, live</h2>
+  <div class="window">
+    <div class="bar">
+      <span>UCR://</span>
+      <span style="color:var(--fg)">ucr-node --callsign BRAVO --class relay</span>
+      <span class="spacer"></span>
+      <span>au ism 915 lora 1750bps · mtu 222</span>
+    </div>
+    <div class="term" id="term"></div>
+  </div>
+  <p class="warn">actual output format — same code runs the desktop app, a Raspberry Pi relay, or a pocket SX1262 modem</p>
+</section>
+
+<!-- ============================================================ -->
+<section>
+  <h2>the app, honestly rendered</h2>
+  <div class="window">
+    <div class="bar">
+      <b>UCR://</b> <span class="badge live">live</span>
+      <span>NODE-9F2A · a3f7…9c</span>
+      <span class="spacer"></span>
+      <span class="badge">[ gps off ]</span>
+      <span class="badge live">[ locked ]</span>
+    </div>
+    <div class="chan">
+      <div class="topic"># ucr-general · 5 peers</div>
+      <div class="msg"><span class="who">SKIPPER-7</span> anchored off the point, anyone copy? <span class="meta">2 hops · signed ✓</span></div>
+      <div class="msg"><span class="who">GODFTHR</span> copy skipper-7 — relaying you to the shore net <span class="meta">1 hop · signed ✓</span></div>
+      <div class="msg"><span class="who">◉ RANGER-3 on the air</span> — incoming voice (codec2 1400bps) <span class="meta">live</span></div>
+      <div class="msg"><span class="who">DECKHAND</span> tender's on its way back, eta 10 <span class="meta">3 hops · signed ✓</span></div>
+      <div class="ptt"><span class="btn">[ hold to talk ]</span> <span class="warn">text input gated — node is locked</span></div>
+    </div>
+  </div>
+  <p class="warn">the real UI: monochrome, no login screens, no feed — a radio, not a social network. voice-first; text underneath.</p>
+</section>
+
+<!-- ============================================================ -->
+<section>
+  <h2>what already works</h2>
+  <ul class="feats">
+    <li><b>Self-certifying identity</b> — Ed25519 keys, NodeId = blake3(pubkey)[..16]. No CA, no registration.</li>
+    <li><b>Multi-hop mesh routing</b> — scoped flooding, passive route learning, RREQ/RREP, dedup, store-and-forward, acks + retry.</li>
+    <li><b>Real transports</b> — UDP LAN broadcast, TCP gateways, USB serial modem, mux across all of them. Zero WebSockets, zero internet.</li>
+    <li><b>LoRa-honest</b> — 222-byte wire MTU (SX1262 FIFO is 255), measured signed overhead, airtime-paced beacons (~37s at SF9), text chunking, duty-cycle aware.</li>
+    <li><b>Hardware autodetect</b> — plug in a modem, <code>UCRPING</code> handshake identifies it, the node retunes itself to the link.</li>
+    <li><b>Packet voice</b> — signed IMA-ADPCM PTT frames on capable links; Codec2 is the registered LoRa voice path (id 2).</li>
+    <li><b>Digital lock</b> — PIN-gated transmit like a real handheld: rx/relay continue, SOS bypasses, blake3 PIN hash, boots locked.</li>
+    <li><b>GPS kill-switch</b> — coarse (city-level) position announce, toggleable; the fix stays local when off.</li>
+    <li><b>Emergency</b> — signed, priority-flooded, relayed regardless of blocking; local rate-limit.</li>
+    <li><b>Deterministic RF simulator</b> — seeded medium with path loss, collisions, half-duplex, partitions. Test the mesh without hardware.</li>
+  </ul>
+</section>
+
+<!-- ============================================================ -->
+<section>
+  <h2>the builds — one firmware, sixteen radios</h2>
+  <table>
+    <tr><th>product</th><th>~cost</th><th>what it is</th></tr>
+    <tr><td>first node</td><td class="d">$15–25</td><td>ESP32-S3 + SX1262 on your desk — the reference</td></tr>
+    <tr><td>pocket node</td><td class="d">$20</td><td>Heltec V3 — zero-solder handheld</td></tr>
+    <tr><td>scout</td><td class="d">$18</td><td>keychain node — XIAO + Wio-SX1262</td></tr>
+    <tr><td>field node</td><td class="d">$50</td><td>own battery, own GPS, cased</td></tr>
+    <tr><td>ranger</td><td class="d">$80–120</td><td>flagship handheld — screen, keypad, PIN lock, GPS, voice, PTT</td></tr>
+    <tr><td>godfather handheld</td><td class="d">$180–260</td><td>the best one — dual-watch, no-compromise parts</td></tr>
+    <tr><td>deckhand / skipper / admiral</td><td class="d">$55–210</td><td>marine tiers — crew handheld → floating relay</td></tr>
+    <tr><td>base station / vehicle</td><td class="d">$40–45</td><td>home bridge / 12V mobile with roof whip</td></tr>
+    <tr><td>don / godfather</td><td class="d">$45–150</td><td>always-on relays — attic to mast-mounted</td></tr>
+    <tr><td>watchtower</td><td class="d">$18</td><td>receive-only listening post — legal everywhere</td></tr>
+    <tr><td>go-box</td><td class="d">$90</td><td>sealed emergency kit — open lid, node up</td></tr>
+    <tr><td>dev rig</td><td class="d">$40</td><td>two radios, one bench — how firmware PRs get made</td></tr>
+    <tr><td>nothing</td><td class="d">free</td><td>LAN-only <code>ucr-node</code> — mesh over Wi-Fi/LAN today</td></tr>
+  </table>
+  <p style="margin-top:12px"><a class="btn" href="https://github.com/Benji-Bitter/UCR/blob/main/docs/hardware/products.md">[ full shopping lists ]</a></p>
+</section>
+
+<!-- ============================================================ -->
+<section>
+  <h2>run it</h2>
+  <pre class="code"><span class="c"># clone + prove the stack</span>
+git clone https://github.com/Benji-Bitter/UCR && cd UCR
+cargo test --workspace
+
+<span class="c"># two terminals, real mesh — zero config</span>
+cargo run -p ucr-cli --bin ucr-node -- --callsign ALPHA
+cargo run -p ucr-cli --bin ucr-node -- --callsign BRAVO
+
+<span class="c"># the app</span>
+cd apps/desktop && pnpm install && pnpm tauri dev</pre>
+  <p class="d">two nodes on one LAN find each other over UDP broadcast alone — no config, no account, no server.</p>
+</section>
+
+<!-- ============================================================ -->
+<section>
+  <h2>documentation</h2>
+  <table>
+    <tr><td><a href="https://github.com/Benji-Bitter/UCR/blob/main/docs/hardware/first-node.md">build your first node</a></td><td class="d">wiring, flashing, legal gate, first packets</td></tr>
+    <tr><td><a href="https://github.com/Benji-Bitter/UCR/blob/main/docs/hardware/products.md">the product lineup</a></td><td class="d">16 builds, every shopping list linked</td></tr>
+    <tr><td><a href="https://github.com/Benji-Bitter/UCR/blob/main/docs/hardware/handheld.md">handhelds</a></td><td class="d">three tiers: pocket → field → standalone</td></tr>
+    <tr><td><a href="https://github.com/Benji-Bitter/UCR/blob/main/docs/hardware/marine.md">marine</a></td><td class="d">three tiers: crew handheld → floating relay</td></tr>
+    <tr><td><a href="https://github.com/Benji-Bitter/UCR/blob/main/docs/hardware/godfather.md">the godfather</a></td><td class="d">the always-on community relay</td></tr>
+    <tr><td><a href="https://github.com/Benji-Bitter/UCR/blob/main/docs/hardware/devices.md">supported boards</a></td><td class="d">~20 boards by effort level: drop-in → HAL port</td></tr>
+    <tr><td><a href="https://github.com/Benji-Bitter/UCR/blob/main/docs/protocol/wire-format.md">wire format</a></td><td class="d">packets, signatures, crypto — the spec</td></tr>
+    <tr><td><a href="https://github.com/Benji-Bitter/UCR/blob/main/docs/protocol/serial.md">serial contract</a></td><td class="d">write your own modem firmware — 6 rules</td></tr>
+    <tr><td><a href="https://github.com/Benji-Bitter/UCR/blob/main/docs/security/model.md">security model</a></td><td class="d">threat model + crypto rationale</td></tr>
+    <tr><td><a href="https://github.com/Benji-Bitter/UCR/blob/main/ROADMAP.md">roadmap</a></td><td class="d">what's next, honestly labelled</td></tr>
+    <tr><td><a href="https://github.com/Benji-Bitter/UCR/blob/main/CONTRIBUTING.md">contributing</a></td><td class="d">including the ESP32 port that unlocks everything</td></tr>
+  </table>
+</section>
+
+<!-- ============================================================ -->
+<footer>
+  <p><b>honest status:</b> protocol, mesh, crypto, transports, simulator, CLI, desktop
+  app — implemented and tested over real sockets. ESP32-S3 firmware compiles for xtensa;
+  first-on-air validation is an open contribution. ADPCM voice rides LAN/TCP; Codec2 is
+  the LoRa path. Everything receive-only until you check your band's rules.</p>
+  <p>Apache-2.0 · <a href="https://github.com/Benji-Bitter/UCR">github.com/Benji-Bitter/UCR</a> ·
+  built out of commodity parts and spite for centralised comms</p>
+</footer>
+
+</div>
+
+<script>
+// The terminal plays a real node session — same lines ucr-node prints.
+const LINES = [
+  ["d", "$ ucr-node --callsign BRAVO --class relay --listen 0.0.0.0:4402"],
+  ["d", "ucr-node starting — udp:4401 tcp:4402 class:RelayNode"],
+  ["d", ""],
+  ["", "[neighbors changed] ALPHA   a1b2…c3d4   rssi=NaN  via tcp"],
+  ["", "[#ucr.public] ALPHA: anyone else on 915 tonight?"],
+  ["", "[dm] ALPHA → you  (e2e ✓)  'relay checks out — solid hop'"],
+  ["", "[beacon] SKIPPER-7  boat  pos≈harbour  rssi=-87dBm  via serial"],
+  ["", "[#ucr-marine] SKIPPER-7: anchored off the point"],
+  ["", "[fwd] pkt e81f… relayed → SKIPPER-7  hops=2  (store+forward)"],
+  ["", "[#ucr.public] you: signal is good — mesh is routing"],
+  ["d", ""],
+];
+const term = document.getElementById("term");
+let li = 0, ci = 0, cur = null;
+function tick() {
+  if (li >= LINES.length) { term.innerHTML += '<span class="caret"></span>'; return; }
+  if (ci === 0) {
+    cur = document.createElement("span");
+    if (LINES[li][0] === "d") cur.className = "d";
+    term.appendChild(cur);
+    term.appendChild(document.createTextNode("\n"));
+  }
+  const txt = LINES[li][1];
+  if (ci < txt.length) {
+    cur.textContent += txt[ci++];
+    setTimeout(tick, 14 + Math.random() * 20);
+  } else { li++; ci = 0; setTimeout(tick, 350); }
+}
+tick();
+</script>
+</body>
+</html>
