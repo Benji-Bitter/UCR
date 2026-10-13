@@ -88,25 +88,30 @@ for the real xtensa target. See [ROADMAP.md](ROADMAP.md).
 
 ## The builds
 
-Every UCR node is one of these. Same `ucr-modem` firmware, same wire
-protocol, different scale of ambition. Full parts lists, wiring tables,
-and honest caveats live in [docs/hardware](docs/hardware/first-node.md).
+Twelve products, one firmware, one wire protocol. The full catalog with
+per-part shopping lists is **[docs/hardware/products.md](docs/hardware/products.md)**.
 
-| build | ~cost | what it is | guide |
-|-------|-------|------------|-------|
-| **first node** | $12–25 | ESP32-S3 + SX1262 breakout on your desk. The reference build; flashes and works. | [first-node.md](docs/hardware/first-node.md) |
-| **the pocket node** | $20 | Heltec LoRa 32 V3 + 18650 + whip. Zero soldering, walks with you, tethered to the app. | [handheld.md](docs/hardware/handheld.md) |
-| **the field node** | $50 | T-Beam Supreme: own battery, own GPS, weatherproofed. The go-bag unit. | [handheld.md](docs/hardware/handheld.md) |
-| **the standalone radio** | $80–120 | T-Deck or full DIY: screen, keyboard, mic, speaker, real PTT button. Voice on-device. | [handheld.md](docs/hardware/handheld.md) |
-| **the don** | $45 | Attic relay. Pi Zero 2 W + SX1262 board, always on, keeps your block meshed. | [godfather.md](docs/hardware/godfather.md) |
-| **the godfather** | $120–150 | Mast-mounted community relay. 5–8dBi collinear, IP65 box, RF↔LAN↔TCP gateway in one process. | [godfather.md](docs/hardware/godfather.md) |
-| **your own modem** | varies | The serial contract is six lines. Any MCU, any language: frame it, answer `UCRPING`, respect the air. | [first-node.md](docs/hardware/first-node.md) |
-| **nothing** | free | `ucr-node` over LAN UDP/TCP. Same protocol, same app, no radio required. | [CLI tools](#cli-tools) |
+| product | ~cost | what it is |
+|---------|-------|------------|
+| **the first node** | $15–25 | ESP32-S3 + SX1262 on your desk — the reference build → [guide](docs/hardware/first-node.md) |
+| **the pocket node** | $20 | Heltec V3 + battery + whip — zero-solder handheld |
+| **the scout** | $18 | XIAO ESP32-S3 + Wio-SX1262 — keychain-sized node |
+| **the field node** | $50 | T-Beam Supreme — own battery, own GPS, cased |
+| **the ranger** | $80–120 | the flagship handheld: screen, keypad, keypad-lock, GPS, mic, speaker, real PTT |
+| **the base station** | $40 | set-and-forget home node — LAN↔RF bridge |
+| **the vehicle node** | $45 | 12 V, mag-mount roof whip, GPS — the mobile unit |
+| **the don** | $45 | attic always-on relay → [godfather.md](docs/hardware/godfather.md) |
+| **the godfather** | $120–150 | mast-mounted community relay + gateway → [godfather.md](docs/hardware/godfather.md) |
+| **the watchtower** | $18 | receive-only listening post — legal everywhere, hears everything |
+| **the go-box** | $90 | sealed emergency kit — open the lid, you're a node |
+| **the dev rig** | $40 | two radios on one bench — how firmware PRs get made |
 
-Got a board not in this list? [devices.md](docs/hardware/devices.md)
-catalogs ~20 boards by effort tier: drop-in, pin-map edit, HAL port, or
-driver swap. Pin-map PRs for new boards are the friendliest contribution
-going.
+Everything is open: commodity boards, published pin maps, printable
+enclosures, `no_std` protocol. No proprietary part anywhere in the chain.
+
+Board shopping? [devices.md](docs/hardware/devices.md) catalogs ~20 boards
+by effort tier: drop-in, pin-map edit, HAL port, or driver swap.
+Pin-map PRs for new boards are the friendliest contribution going.
 
 ## Quickstart
 
@@ -290,6 +295,7 @@ docs/           protocol, architecture, security, hardware, development
 - [docs/protocol/wire-format.md](docs/protocol/wire-format.md): packet & crypto spec
 - [docs/architecture/overview.md](docs/architecture/overview.md): crate map & data flow
 - [docs/security/model.md](docs/security/model.md): threat model & crypto rationale
+- [docs/hardware/products.md](docs/hardware/products.md): the product lineup + shopping lists
 - [docs/hardware/first-node.md](docs/hardware/first-node.md): build your first node
 - [docs/hardware/handheld.md](docs/hardware/handheld.md): three handheld tiers
 - [docs/hardware/godfather.md](docs/hardware/godfather.md): the always-on relay
