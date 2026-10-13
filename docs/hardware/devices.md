@@ -70,6 +70,14 @@ bigger than SX1262's, so these ports matter.
 | RFM69/FSK radios | RFM69HCW | GFSK profile already exists in `profile.rs`; different modulation path. |
 | nRF24L01+ | everywhere | 2.4 GHz, short range — fine for a bench mesh, not the citizen-radio target. |
 
+## Infrastructure builds
+
+- **[The Godfather Node](godfather.md)** — a dedicated always-on relay:
+  no mic, no screen, no user. Any SX1262 board + a Pi Zero 2 W mounted
+  high, declaring `RelayNode`, bridging RF↔LAN↔TCP in one command.
+  Two builds priced: the attic "Don" (~$45) and the mast-mounted
+  Godfather (~$120–150).
+
 ## No-radio nodes (still real UCR)
 
 - **Any laptop/RPi** running `ucr-node` — UDP LAN + TCP gateways are real

@@ -77,6 +77,10 @@ struct Cli {
     /// Do not relay traffic for other nodes.
     #[arg(long)]
     no_relay: bool,
+    /// Station class announced in beacons: individual, base, relay,
+    /// community, portable, boat, vehicle, truck, volunteer, other.
+    #[arg(long, default_value = "individual")]
+    class: String,
     /// Default channel to join and send to.
     #[arg(long, default_value = "ucr.public")]
     channel: String,
@@ -161,10 +165,22 @@ async fn main() {
         .zip(cli.lon)
         .map(|(la, lo)| CoarsePos::new(la, lo, 8_000));
 
+    let class = match cli.class.as_str() {
+        "base" | "basestation" => StationClass::BaseStation,
+        "relay" => StationClass::RelayNode,
+        "community" => StationClass::CommunityStation,
+        "portable" => StationClass::Portable,
+        "boat" => StationClass::Boat,
+        "vehicle" => StationClass::Vehicle,
+        "truck" => StationClass::Truck,
+        "volunteer" | "emergencyvolunteer" => StationClass::EmergencyVolunteer,
+        "other" => StationClass::Other,
+        _ => StationClass::Individual,
+    };
     let mut builder = NodeBuilder::new().config(NodeConfig {
         callsign: cli.callsign.chars().take(12).collect(),
         desc: cli.desc,
-        class: StationClass::Individual,
+        class,
         relay: !cli.no_relay,
         pos,
         ..Default::default()
