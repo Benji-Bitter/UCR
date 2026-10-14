@@ -19,6 +19,13 @@ jobs:
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
+      # --workspace compiles ucr-desktop (tauri/webkit) + ucr-cli's serial
+      # transport (libudev) — install both stacks.
+      - name: system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libudev-dev libwebkit2gtk-4.1-dev \
+            libappindicator3-dev librsvg2-dev patchelf
       - name: fmt
         run: cargo fmt --all -- --check
       - name: clippy
@@ -34,6 +41,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      - name: system deps
+        run: sudo apt-get update && sudo apt-get install -y libudev-dev
       - name: unit + integration tests
         run: cargo test --workspace --exclude ucr-desktop --exclude ucr-core
       # Real-socket tests serialize — parallel UDP beacons contend for
@@ -51,5 +60,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      - name: system deps
+        run: sudo apt-get update && sudo apt-get install -y libudev-dev
       - name: ucr-sim 3-node line scenario
         run: cargo run -p ucr-cli --bin ucr-sim -- run --nodes 3 --duration 90 --seed 7 --json
