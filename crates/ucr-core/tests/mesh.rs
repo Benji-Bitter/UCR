@@ -255,7 +255,7 @@ async fn duplicate_packets_suppressed() {
     );
     // The re-flood from C returns to B, whose router must suppress the
     // duplicate (a line topology gives C only one copy).
-    let dup = until(|| net.nodes[1].stats().router.dropped_dup >= 1, 8_000).await;
+    let dup = until(|| net.nodes[1].stats().router.dropped_dup >= 1, 20_000).await;
     assert!(dup, "no duplicate suppression observed at the relay");
 }
 

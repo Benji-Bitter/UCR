@@ -1802,13 +1802,13 @@ impl Node {
             Payload::Emergency(e) => {
                 self.on_emergency(&pkt, e, verified);
             }
-            Payload::KeyReply { pubkey } => {
-                if ucr_identity::check_binding(pubkey, &pkt.header.src).is_ok() {
-                    let _ = self.inner.store.learn_key(&pkt.header.src, pubkey);
-                    self.emit(NodeEvent::KeyLearned {
-                        node: pkt.header.src,
-                    });
-                }
+            Payload::KeyReply { pubkey }
+                if ucr_identity::check_binding(pubkey, &pkt.header.src).is_ok() =>
+            {
+                let _ = self.inner.store.learn_key(&pkt.header.src, pubkey);
+                self.emit(NodeEvent::KeyLearned {
+                    node: pkt.header.src,
+                });
             }
             _ => {}
         }

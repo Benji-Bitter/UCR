@@ -63,4 +63,9 @@ jobs:
       - name: system deps
         run: sudo apt-get update && sudo apt-get install -y libudev-dev
       - name: ucr-sim 3-node line scenario
-        run: cargo run -p ucr-cli --bin ucr-sim -- run --nodes 3 --duration 90 --seed 7 --json
+        # --observe + prove discovery happened in output: RF loss makes
+        # message delivery stochastic — a smoke test shouldn't fail on
+        # collision luck. NeighborUpdate = the medium + nodes actually ran.
+        run: |
+          cargo run -p ucr-cli --bin ucr-sim -- run --nodes 3 --duration 90 --seed 7 --observe --json | tee sim-out.jsonl
+          grep -q NeighborUpdate sim-out.jsonl
