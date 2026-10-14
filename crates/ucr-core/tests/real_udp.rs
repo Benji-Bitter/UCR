@@ -76,9 +76,13 @@ async fn wait_event<F: Fn(&NodeEvent) -> bool>(
 #[tokio::test(flavor = "multi_thread")]
 async fn udp_nodes_discover_each_other() {
     let (a, b) = udp_pair().await;
-    let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+    // std Instant for the deadline — tokio's clock can jump when other
+    // tests' timers advance the shared timer wheel. 30s ≈ 6 discovery-phase
+    // beacon intervals (5s cadence while <3 neighbours) — loopback UDP can
+    // drop datagrams under parallel test load, so one shot isn't enough.
+    let deadline = std::time::Instant::now() + Duration::from_secs(30);
     while !a.neighbors().iter().any(|n| n.node_id == b.node_id())
-        && tokio::time::Instant::now() < deadline
+        && std::time::Instant::now() < deadline
     {
         sleep(Duration::from_millis(50)).await;
     }
@@ -95,9 +99,9 @@ async fn udp_dm_delivery_e2e_encrypted() {
     let (a, b) = udp_pair().await;
     let mut rx = b.events();
     // discovery grace: the session handshake needs B's beacon first
-    let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+    let deadline = std::time::Instant::now() + Duration::from_secs(10);
     while !a.neighbors().iter().any(|n| n.node_id == b.node_id())
-        && tokio::time::Instant::now() < deadline
+        && std::time::Instant::now() < deadline
     {
         sleep(Duration::from_millis(50)).await;
     }
@@ -117,9 +121,9 @@ async fn udp_dm_delivery_e2e_encrypted() {
 async fn udp_voice_frames_flood() {
     let (a, b) = udp_pair().await;
     let mut rx = b.events();
-    let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+    let deadline = std::time::Instant::now() + Duration::from_secs(10);
     while !b.neighbors().iter().any(|n| n.node_id == a.node_id())
-        && tokio::time::Instant::now() < deadline
+        && std::time::Instant::now() < deadline
     {
         sleep(Duration::from_millis(50)).await;
     }
@@ -220,9 +224,9 @@ async fn lora_mtu_chunks_text_and_rejects_fat_voice() {
 async fn udp_channel_flood() {
     let (a, b) = udp_pair().await;
     let mut rx = b.events();
-    let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+    let deadline = std::time::Instant::now() + Duration::from_secs(10);
     while !b.neighbors().iter().any(|n| n.node_id == a.node_id())
-        && tokio::time::Instant::now() < deadline
+        && std::time::Instant::now() < deadline
     {
         sleep(Duration::from_millis(50)).await;
     }
@@ -294,7 +298,6 @@ async fn digital_lock_gates_tx_not_rx() {
     let mut rx = a.events();
     let sender = tokio::spawn({
         let b = b.clone();
-        let ch = ch.clone();
         async move {
             for _ in 0..30 {
                 let _ = b.send_channel_text(&ch, "heard while locked");
@@ -394,19 +397,17 @@ async fn gps_toggle_gates_beacon_position() {
     let (a, b) = udp_pair().await;
     a.set_position(Some(ucr_protocol::CoarsePos::new(-33.87, 151.21, 8_000)));
 
-    // Sharing on: B sees A's position once the beacon lands.
-    assert!(
-        wait_event(
-            &mut b.events(),
-            |ev| matches!(ev, NodeEvent::NeighborUpdate { .. }),
-            15_000,
-        )
-        .await
-            || true
-    ); // neighbor events are periodic — poll the table instead
-    let deadline = tokio::time::Instant::now() + Duration::from_secs(15);
+    // Sharing on: B sees A's position once the beacon lands. Neighbor
+    // events are periodic — poll the table instead of waiting on one.
+    let _ = wait_event(
+        &mut b.events(),
+        |ev| matches!(ev, NodeEvent::NeighborUpdate),
+        15_000,
+    )
+    .await;
+    let deadline = std::time::Instant::now() + Duration::from_secs(15);
     let mut seen_pos = false;
-    while tokio::time::Instant::now() < deadline {
+    while std::time::Instant::now() < deadline {
         if let Some(nb) = b.neighbors().iter().find(|n| n.node_id == a.node_id()) {
             if nb.pos.is_some() {
                 seen_pos = true;

@@ -35,7 +35,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: unit + integration tests
-        run: cargo test --workspace --exclude ucr-desktop
+        run: cargo test --workspace --exclude ucr-desktop --exclude ucr-core
+      # Real-socket tests serialize — parallel UDP beacons contend for
+      # loopback buffers and turn discovery timing into a flake lottery.
+      - name: real-transport tests (serial)
+        run: cargo test -p ucr-core --test real_udp -- --test-threads=1
       - name: mesh e2e suite
         run: cargo test -p ucr-core --test mesh
 

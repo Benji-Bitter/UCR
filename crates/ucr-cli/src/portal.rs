@@ -37,7 +37,9 @@ pub async fn serve(node: Node, channel: ChannelId, channel_name: String, addr: S
         let channel_name = channel_name.clone();
         tokio::spawn(async move {
             let mut buf = vec![0u8; 8192];
-            let Ok(n) = sock.read(&mut buf).await else { return };
+            let Ok(n) = sock.read(&mut buf).await else {
+                return;
+            };
             let req = String::from_utf8_lossy(&buf[..n]);
             let mut parts = req.split_whitespace();
             let method = parts.next().unwrap_or("");
