@@ -23,10 +23,30 @@ nb = "1.1"
 heapless = "0.8"
 ucr-protocol = { path = "../../crates/ucr-protocol", default-features = false }
 
+# wifi-portal: SoftAP + captive portal — the phone joins UCR-XXXX and the
+# radio's own web UI opens on it. Separate bin: `cargo +esp build --bin portal`
+esp-radio = { version = "1.0.0-beta.1", optional = true, features = ["esp32s3", "wifi"] }
+esp-rtos = { version = "0.4", optional = true, features = ["esp32s3", "embassy", "esp-radio"] }
+embassy-executor = { version = "0.10", optional = true, features = ["executor-thread"] }
+embassy-net = { version = "0.7", optional = true, default-features = false, features = ["proto-ipv4", "medium-ethernet", "tcp", "udp"] }
+embassy-time = { version = "0.5", optional = true }
+embassy-futures = { version = "0.1", optional = true }
+static_cell = { version = "2", optional = true }
+
+[[bin]]
+name = "portal"
+path = "src/bin/portal.rs"
+required-features = ["wifi-portal"]
+
 [features]
 # Enable radio transmit. Leave OFF until the regulatory checklist in
 # docs/hardware/regulatory.md is complete — RX works either way.
 tx-enable = []
+# WiFi captive portal firmware (src/bin/portal.rs only).
+wifi-portal = [
+  "dep:esp-radio", "dep:esp-rtos", "dep:embassy-executor", "dep:embassy-net",
+  "dep:embassy-time", "dep:embassy-futures", "dep:static_cell",
+]
 
 [profile.release]
 opt-level = "s"

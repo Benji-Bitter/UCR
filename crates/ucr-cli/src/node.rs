@@ -38,6 +38,8 @@ use ucr_storage::Store;
 use ucr_transport::tcp::TcpTransport;
 use ucr_transport::{MuxTransport, UdpBroadcastTransport, DEFAULT_UDP_PORT};
 
+mod portal;
+
 #[derive(Parser)]
 #[command(name = "ucr-node", version, about = "Headless interactive UCR node")]
 struct Cli {
@@ -89,6 +91,10 @@ struct Cli {
     /// Default channel to join and send to.
     #[arg(long, default_value = "ucr.public")]
     channel: String,
+    /// Serve the captive-portal web UI on this address (e.g. 0.0.0.0:80).
+    /// Point phones/browsers at it — the radio gets a screen.
+    #[arg(long)]
+    portal: Option<String>,
 }
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 4)]
@@ -221,6 +227,14 @@ async fn main() {
     println!("callsign: {}", node.callsign());
     println!("channel: {} ({})", cli.channel, default_channel.short());
     println!("type /help for commands");
+
+    // Captive portal — screenless radios get a web UI through the host.
+    if let Some(addr) = cli.portal.clone() {
+        let node = node.clone();
+        let ch = default_channel;
+        let name = cli.channel.clone();
+        tokio::spawn(portal::serve(node, ch, name, addr));
+    }
 
     // Event printer.
     let mut events = node.events();

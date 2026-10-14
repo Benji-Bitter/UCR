@@ -5,6 +5,9 @@ runner = "espflash flash --monitor"
 target = "xtensa-esp32s3-none-elf"
 rustflags = [
   "-C", "link-arg=-nostartfiles",
+  # esp-hal's generated script places .wifislprxiram + friends; without it the
+  # prebuilt wifi blobs land >1GB from IRAM and ld dies on windowed longcalls.
+  "-C", "link-arg=-Tlinkall.x",
 ]
 
 # Bare-metal target: core/alloc built from rust-src (prebuilt std only

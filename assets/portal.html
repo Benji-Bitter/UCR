@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>UCR</title>
+<style>
+:root{--ink:#000;--panel:#060606;--line:#242424;--fg:#fff;--dim:#7f7f7f}
+*{border-radius:0;box-sizing:border-box}
+body{background:var(--ink);color:var(--fg);font:13px/1.5 ui-monospace,Menlo,monospace;margin:0;padding:14px;max-width:520px}
+pre.logo{color:var(--fg);font-size:9px;line-height:1.2;letter-spacing:0;margin:0 0 4px}
+.tag{color:var(--dim);margin-bottom:12px}
+.hdr{border:1px solid var(--line);background:var(--panel);padding:8px 10px;margin-bottom:10px}
+.hdr b{letter-spacing:.15em}
+.kv{color:var(--dim)}
+.kv b{color:var(--fg);font-weight:400}
+.t{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}
+.chip{border:1px solid var(--line);padding:2px 8px;font-size:11px;color:var(--dim)}
+.chip.on{background:var(--fg);color:#000}
+h2{font-size:10px;letter-spacing:.25em;color:var(--dim);font-weight:400;margin:14px 0 6px}
+#feed{list-style:none;margin:0;padding:0;border:1px solid var(--line);background:var(--panel);min-height:120px;max-height:260px;overflow-y:auto}
+#feed li{padding:6px 10px;border-bottom:1px solid #141414}
+#feed .who{color:var(--dim);font-size:11px}
+#feed li.me{background:#101010}
+#peers{border:1px solid var(--line)}
+#peers div{padding:5px 10px;border-bottom:1px solid #141414;font-size:12px}
+#peers .cls{color:var(--dim);font-size:10px}
+form{display:flex;gap:8px;margin-top:10px}
+input[type=text]{flex:1;background:var(--panel);border:1px solid var(--line);color:var(--fg);font:inherit;padding:8px}
+button{background:var(--fg);color:#000;border:0;font:inherit;padding:8px 16px;cursor:pointer;letter-spacing:.1em}
+button:disabled{background:var(--line);color:var(--dim)}
+.foot{margin-top:18px;color:#3a3a3a;font-size:10px}
+</style>
+</head>
+<body>
+<pre class="logo">##      ##     ########     ########
+##      ##    ##            ##      ##
+##      ##    ##            ########
+##      ##    ##            ##    ##
+##########     ########     ##      ##</pre>
+<div class="tag">universal citizens radio — captive portal</div>
+
+<div class="hdr"><b id="cs">…</b> <span class="kv" id="nid"></span>
+<div class="kv" id="info">connecting…</div>
+<div class="t" id="chips"><span class="chip" id="locked">locked</span><span class="chip" id="gps">gps off</span><span class="chip" id="ch"></span></div>
+</div>
+
+<h2>channel feed</h2>
+<ul id="feed"></ul>
+<form id="f"><input id="m" type="text" maxlength="180" placeholder="say something on the mesh" autocomplete="off"><button id="send">SEND</button></form>
+
+<h2>peers</h2>
+<div id="peers"><div>— none heard yet —</div></div>
+
+<div class="foot">no servers · no accounts · this page is served by the radio itself</div>
+
+<script>
+const $=i=>document.getElementById(i);
+async function j(u,o){try{const r=await fetch(u,o);return await r.json()}catch(e){return null}}
+async function tick(){
+  const s=await j('/api/status');
+  if(!s){$('info').textContent='offline';return}
+  $('cs').textContent=s.callsign;
+  $('nid').textContent='· '+s.node_id.slice(0,12);
+  $('info').textContent=`${s.channel} · ${s.peers.length} peers · up ${Math.round(s.uptime_s)}s`;
+  $('locked').className='chip'+(s.locked?' on':'');
+  $('locked').textContent=s.locked?'locked · tx gated':'unlocked';
+  $('gps').className='chip'+(s.share_pos?' on':'');
+  $('gps').textContent=s.share_pos?'gps on':'gps off';
+  $('ch').textContent='#'+s.channel;
+  $('send').disabled=!!s.locked;
+  $('peers').innerHTML=s.peers.length?s.peers.map(p=>`<div>${p.n} <span class="cls">${p.cls||''} ${isNaN(p.rssi)?'':p.rssi+'dBm'} ${p.hops??''}hop</span></div>`).join(''):'<div>— none heard yet —</div>';
+}
+async function feed(){
+  const f=await j('/api/feed'); if(!f)return;
+  const el=$('feed'),wasBottom=el.scrollTop+el.clientHeight>=el.scrollHeight-20;
+  el.innerHTML=f.msgs.map(m=>`<li class="${m.me?'me':''}"><div class="who">${m.who} · sig✓</div>${m.text}</li>`).join('');
+  if(wasBottom)el.scrollTop=el.scrollHeight;
+}
+$('f').onsubmit=async e=>{e.preventDefault();const t=$('m').value.trim();if(!t)return;
+  const r=await j('/api/send',{method:'POST',headers:{'Content-Type':'text/plain'},body:t});
+  if(r&&r.ok){$('m').value=''}else if(r&&r.err==='locked'){$('info').textContent='locked — unlock from the app';}feed();};
+tick();feed();setInterval(tick,3000);setInterval(feed,2000);
+</script>
+</body>
+</html>
