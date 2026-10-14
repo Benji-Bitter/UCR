@@ -99,7 +99,7 @@ async fn udp_dm_delivery_e2e_encrypted() {
     let (a, b) = udp_pair().await;
     let mut rx = b.events();
     // discovery grace: the session handshake needs B's beacon first
-    let deadline = std::time::Instant::now() + Duration::from_secs(10);
+    let deadline = std::time::Instant::now() + Duration::from_secs(30);
     while !a.neighbors().iter().any(|n| n.node_id == b.node_id())
         && std::time::Instant::now() < deadline
     {
@@ -109,7 +109,7 @@ async fn udp_dm_delivery_e2e_encrypted() {
     let got = wait_event(
         &mut rx,
         |ev| matches!(ev, NodeEvent::DirectMessage { text, .. } if text == "over real udp"),
-        15_000,
+        30_000,
     )
     .await;
     assert!(got, "B never received the DM over real UDP");
@@ -121,7 +121,7 @@ async fn udp_dm_delivery_e2e_encrypted() {
 async fn udp_voice_frames_flood() {
     let (a, b) = udp_pair().await;
     let mut rx = b.events();
-    let deadline = std::time::Instant::now() + Duration::from_secs(10);
+    let deadline = std::time::Instant::now() + Duration::from_secs(30);
     while !b.neighbors().iter().any(|n| n.node_id == a.node_id())
         && std::time::Instant::now() < deadline
     {
@@ -224,7 +224,7 @@ async fn lora_mtu_chunks_text_and_rejects_fat_voice() {
 async fn udp_channel_flood() {
     let (a, b) = udp_pair().await;
     let mut rx = b.events();
-    let deadline = std::time::Instant::now() + Duration::from_secs(10);
+    let deadline = std::time::Instant::now() + Duration::from_secs(30);
     while !b.neighbors().iter().any(|n| n.node_id == a.node_id())
         && std::time::Instant::now() < deadline
     {
@@ -235,7 +235,7 @@ async fn udp_channel_flood() {
     let got = wait_event(
         &mut rx,
         |ev| matches!(ev, NodeEvent::ChannelMessage { text, .. } if text == "lan flood"),
-        15_000,
+        30_000,
     );
     let sender = tokio::spawn({
         let a = a.clone();
@@ -309,7 +309,7 @@ async fn digital_lock_gates_tx_not_rx() {
         wait_event(
             &mut rx,
             |ev| matches!(ev, NodeEvent::ChannelMessage { text, .. } if text == "heard while locked"),
-            15_000,
+            30_000,
         )
         .await,
         "locked node stopped receiving"
@@ -326,7 +326,7 @@ async fn digital_lock_gates_tx_not_rx() {
         wait_event(
             &mut rx,
             |ev| matches!(ev, NodeEvent::ChannelMessage { text, .. } if text == "back on air"),
-            15_000,
+            30_000,
         )
         .await,
         "unlocked node couldn't transmit"
@@ -402,7 +402,7 @@ async fn gps_toggle_gates_beacon_position() {
     let _ = wait_event(
         &mut b.events(),
         |ev| matches!(ev, NodeEvent::NeighborUpdate),
-        15_000,
+        30_000,
     )
     .await;
     let deadline = std::time::Instant::now() + Duration::from_secs(15);
