@@ -33,7 +33,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # package.json lives in apps/desktop — action-setup can't find a
+      # packageManager pin at repo root, so give it the version directly.
       - uses: pnpm/action-setup@v4
+        with:
+          version: "11.15.0"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
